@@ -75,3 +75,13 @@ class ALOVDataset(Dataset):
 	rect = patches.Rectangle((bb[0], bb[1]),bb[2],bb[3],linewidth=1,edgecolor='r',facecolor='none')
 	ax.add_patch(rect)
 	plt.show()
+
+    def show_sample(self, idx):
+        x = self[idx]
+        f, (ax1, ax2) = plt.subplots(1, 2)
+        ax1.imshow(x['previmg'])
+        ax2.imshow(x['currimg'])
+        bb = x['currbb']
+        rect = patches.Rectangle((bb[0], bb[1]),bb[2],bb[3],linewidth=1,edgecolor='r',facecolor='none')
+        ax2.add_patch(rect)
+        plt.show()
