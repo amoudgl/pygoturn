@@ -61,7 +61,6 @@ class ALOVDataset(Dataset):
             curr, currbb = x['image'], x['bb']
 	sample = {'previmg': prev, 
                   'currimg': curr,
-                  'prevbb' : prevbb,
                   'currbb' : currbb
                   }
 	return sample
