@@ -15,11 +15,9 @@ warnings.filterwarnings("ignore")
 class ALOVDataset(Dataset):
     """ALOV Tracking Dataset"""
 
-    def __init__(self, root_dir, target_dir, transform_prev=None, transform_curr=None):
+    def __init__(self, root_dir, target_dir):
 	self.root_dir = root_dir
 	self.target_dir = target_dir
-	self.transform_prev = transform_prev
-        self.transform_curr = transform_curr
 	self.y = []
 	self.x = []
 	envs = os.listdir(target_dir)  
@@ -47,23 +45,34 @@ class ALOVDataset(Dataset):
     def __getitem__(self, idx):
 	prev = io.imread(self.x[idx])
         curr = io.imread(self.x[idx+1])
-	prev_ann = self.y[idx].strip().split(' ')
-        curr_ann = self.y[idx+1].strip().split(' ')
-	prevbb = [float(prev_ann[3]), float(prev_ann[4]), float(prev_ann[1])-float(prev_ann[3]), float(prev_ann[6])-float(prev_ann[4])]
-        currbb = [float(curr_ann[3]), float(curr_ann[4]), float(curr_ann[1])-float(curr_ann[3]), float(curr_ann[6])-float(curr_ann[4])]
-        if self.transform_prev:
-            sample = {'image':prev, 'bb':prevbb}
-            x = self.transform_prev(sample)
-            prev, prevbb = x['image'], x['bb']
-        if self.transform_curr:
-            sample = {'image':curr, 'bb':currbb}
-            x = self.transform_curr(sample)
-            curr, currbb = x['image'], x['bb']
-	sample = {'previmg': prev, 
-                  'currimg': curr,
+	prevbb = self.get_bb(idx) 
+        currbb = self.get_bb(idx+1)
+        # Crop previous image with height and width twice the prev bounding box height and width
+        # Scale the cropped image to (227,227,3)
+        crop_prev = CropPrev(128)
+        crop_curr = CropCurr(128)
+        scale = Rescale((227,227))
+        transform_prev = transforms.Compose([crop_prev, scale])
+        prev_img = transform_prev({'image':prev, 'bb':prevbb})['image']
+        # Crop current image with height and width twice the prev bounding box height and width
+        # Scale the cropped image to (227,227,3)
+        curr_obj = crop_curr({'image':curr, 'prevbb':prevbb, 'currbb':currbb})
+        curr_obj = scale(curr_obj)
+        curr_img = curr_obj['image']
+        currbb = curr_obj['bb']
+	sample = {'previmg': prev_img, 
+                  'currimg': curr_img,
                   'currbb' : currbb
                   }
 	return sample
+    
+    def get_bb(self, idx):
+        ann = self.y[idx].strip().split(' ')
+        left = min(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
+        upper = min(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
+        right = max(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
+        lower = max(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
+        return [left, upper, right-left, lower-upper]
 
     # helper function to display images with ground truth bounding box
     def show(self, idx):

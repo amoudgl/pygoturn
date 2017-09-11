@@ -32,8 +32,8 @@ class Rescale(object):
         bb = [bb[0]*new_w/w, bb[1]*new_h/h, bb[2]*new_w/w, bb[3]*new_h/h]
         return {'image': img, 'bb':bb}
 
-class Crop(object):
-    """Crop the image using the bounding box specifications.
+class CropPrev(object):
+    """Crop the previous image using the bounding box specifications.
 
     Args:
         output_size (tuple or int): Desired output size. If int, square crop
@@ -51,6 +51,8 @@ class Crop(object):
     def __call__(self, sample):
         image, bb = sample['image'], sample['bb']
         image = img_as_ubyte(image)
+        if (len(image.shape) == 2):
+            image = np.repeat(image[...,None],3,axis=2)
         im = Image.fromarray(image)
         w = bb[2]
         h = bb[3]
@@ -59,9 +61,44 @@ class Crop(object):
         right = left + 2*w
         lower = upper + 2*h
         box = (left, upper, right, lower)
+
         res = np.asarray(im.crop(box))
-        ''' TODO: bb doesn't matter but fix this to get correct bb '''
+        bb = [bb[0]-left, bb[1]-upper, w, h]
         return {'image':res, 'bb':bb}
+
+class CropCurr(object):
+    """Crop the current image using the bounding box specifications.
+
+    Args:
+        output_size (tuple or int): Desired output size. If int, square crop
+            is made.
+    """
+    def __init__(self, output_size):
+        assert isinstance(output_size, (int, tuple))
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            assert len(output_size) == 2
+            self.output_size = output_size
+
+
+    def __call__(self, sample):
+        image, prevbb, currbb = sample['image'], sample['prevbb'], sample['currbb']
+        image = img_as_ubyte(image)
+        if (len(image.shape) == 2):
+            image = np.repeat(image[...,None],3,axis=2)
+        im = Image.fromarray(image)
+        w = prevbb[2]
+        h = prevbb[3]
+        left = prevbb[0]-w/2
+        upper = prevbb[1]-h/2
+        right = left + 2*w
+        lower = upper + 2*h
+        box = (left, upper, right, lower)
+        res = np.asarray(im.crop(box))
+        bb = [currbb[0]-left, currbb[1]-upper, currbb[2], currbb[3]]
+        return {'image':res, 'bb':bb}
+
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
