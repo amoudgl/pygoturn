@@ -36,6 +36,7 @@ def train_model(model, dataloader, criterion, optimizer, lr_scheduler, num_epoch
 
 #    best_model = model
 #    best_acc = 0.0
+    dataset_size = dataloader.dataset.len
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
@@ -75,18 +76,16 @@ def train_model(model, dataloader, criterion, optimizer, lr_scheduler, num_epoch
             i = i + 1
             running_loss += loss.data[0]
 
-        epoch_loss = running_loss / dataset.len
-        print('{} Loss: {:.4f}'.format(
-            phase, epoch_loss))
-        torch.save(model.state_dict(), save_dir)
-        print('checkpoint saved!')
+        epoch_loss = running_loss / dataset_size
+        print('Loss: {:.4f}'.format(epoch_loss))
+        path = save_dir + 'model_n_epoch_' + str(epoch) + '_loss_' + str(round(epoch_loss, 3)) + '.pth'
+        torch.save(model.state_dict(), path)
+        print('Checkpoint saved!')
 
         # deep copy the model
 #        if epoch_loss < best_loss:
 #            best_loss = epoch_loss
 #            best_model = copy.deepcopy(model)
-
-        print()
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -112,7 +111,6 @@ def main():
     loss_fn = torch.nn.L1Loss(size_average = False)
     optimizer = optim.SGD(net.classifier.parameters(), lr=lr, momentum=0.9)
     net = train_model(net, dataloader, loss_fn, optimizer, exp_lr_scheduler, num_epochs=n_epochs)
-    torch.save(net.state_dict(), save_dir)
 
 if __name__ == "__main__":
     main()
