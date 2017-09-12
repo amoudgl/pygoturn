@@ -44,6 +44,12 @@ class ALOVDataset(Dataset):
         return self.len
 
     def __getitem__(self, idx):
+	sample = self.get_sample(idx)
+        if (self.transform):
+            sample = self.transform(sample)
+        return sample
+
+    def get_sample(self, idx):
         prev = io.imread(self.x[idx])
         curr = io.imread(self.x[idx+1])
         prevbb = self.get_bb(idx) 
@@ -66,9 +72,7 @@ class ALOVDataset(Dataset):
                   'currimg': curr_img,
                   'currbb' : currbb
                   }
-        if (self.transform):
-            sample = self.transform(sample)
-        return sample
+	return sample
 
     # given annotation, returns bounding box in the format: (left, upper, width, height)
     def get_bb(self, idx):
@@ -91,7 +95,7 @@ class ALOVDataset(Dataset):
         plt.show()
 
     def show_sample(self, idx):
-        x = self[idx]
+        x = self.get_sample(idx)
         f, (ax1, ax2) = plt.subplots(1, 2)
         ax1.imshow(x['previmg'])
         ax2.imshow(x['currimg'])
