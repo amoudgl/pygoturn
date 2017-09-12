@@ -111,9 +111,9 @@ class ToTensor(object):
         # torch image: C X H X W
         prev_img = prev_img.transpose((2, 0, 1))
         curr_img = curr_img.transpose((2, 0, 1))
-        return {'previmg': torch.from_numpy(prev_img),
-                'currimg': torch.from_numpy(curr_img),
-                'currbb': torch.from_numpy(currbb)
+        return {'previmg': torch.from_numpy(prev_img).float(),
+                'currimg': torch.from_numpy(curr_img).float(),
+                'currbb': torch.from_numpy(currbb).float()
                 }
 
 class Normalize(object):
