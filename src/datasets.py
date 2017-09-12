@@ -74,19 +74,19 @@ class ALOVDataset(Dataset):
     def get_bb(self, idx):
         ann = self.y[idx].strip().split(' ')
         left = min(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
-        upper = min(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
+        top = min(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
         right = max(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
-        lower = max(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
-        return [left, upper, right-left, lower-upper]
+        bottom = max(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
+        return [left, top, right, bottom]
+        # return [left, upper, right-left, lower-upper]
 
     # helper function to display images with ground truth bounding box
     def show(self, idx):
         im = io.imread(self.x[idx])
-        ann = self.y[idx].strip().split(' ')
-        bb = [float(ann[3]), float(ann[4]), float(ann[1])-float(ann[3]), float(ann[6])-float(ann[4])]
+        bb = self.get_bb(idx)
         fig,ax = plt.subplots(1)
         ax.imshow(im)
-        rect = patches.Rectangle((bb[0], bb[1]),bb[2],bb[3],linewidth=1,edgecolor='r',facecolor='none')
+        rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
         ax.add_patch(rect)
         plt.show()
 
@@ -96,6 +96,6 @@ class ALOVDataset(Dataset):
         ax1.imshow(x['previmg'])
         ax2.imshow(x['currimg'])
         bb = x['currbb']
-        rect = patches.Rectangle((bb[0], bb[1]),bb[2],bb[3],linewidth=1,edgecolor='r',facecolor='none')
+        rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
         ax2.add_patch(rect)
         plt.show()

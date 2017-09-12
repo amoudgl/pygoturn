@@ -55,16 +55,16 @@ class CropPrev(object):
         if (len(image.shape) == 2):
             image = np.repeat(image[...,None],3,axis=2)
         im = Image.fromarray(image)
-        w = bb[2]
-        h = bb[3]
+        w = bb[2]-bb[0]
+        h = bb[3]-bb[1]
         left = bb[0]-w/2
-        upper = bb[1]-h/2
+        top = bb[1]-h/2
         right = left + 2*w
-        lower = upper + 2*h
-        box = (left, upper, right, lower)
+        bottom = top + 2*h
+        box = (left, top, right, bottom)
 
         res = np.asarray(im.crop(box))
-        bb = [bb[0]-left, bb[1]-upper, w, h]
+        bb = [bb[0]-left, bb[1]-top, bb[2]-left, bb[3]-top]
         return {'image':res, 'bb':bb}
 
 class CropCurr(object):
@@ -89,15 +89,15 @@ class CropCurr(object):
         if (len(image.shape) == 2):
             image = np.repeat(image[...,None],3,axis=2)
         im = Image.fromarray(image)
-        w = prevbb[2]
-        h = prevbb[3]
+        w = prevbb[2]-prevbb[0]
+        h = prevbb[3]-prevbb[1]
         left = prevbb[0]-w/2
-        upper = prevbb[1]-h/2
+        top = prevbb[1]-h/2
         right = left + 2*w
-        lower = upper + 2*h
-        box = (left, upper, right, lower)
+        bottom = top + 2*h
+        box = (left, top, right, bottom)
         res = np.asarray(im.crop(box))
-        bb = [currbb[0]-left, currbb[1]-upper, currbb[2], currbb[3]]
+        bb = [currbb[0]-left, currbb[1]-top, currbb[2]-left, currbb[3]-top]
         return {'image':res, 'bb':bb}
 
 
@@ -150,7 +150,7 @@ def show_batch(sample_batched):
     for i in range(batch_size):
         bb = currbb_batch[i]
         bb = bb.numpy()
-        rect = patches.Rectangle((bb[0]+i*im_size, bb[1]),bb[2],bb[3],linewidth=1,edgecolor='r',facecolor='none')
+        rect = patches.Rectangle((bb[0]+i*im_size, bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
         axarr[1].add_patch(rect)
     plt.show()
 
