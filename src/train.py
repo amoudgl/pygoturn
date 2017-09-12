@@ -4,9 +4,15 @@ import model
 import torch
 from torch.autograd import Variable
 from torchvision import transforms
-from helper import ToTensor, show_batch
+from helper import ToTensor, Normalize, show_batch
 from torch.utils.data import DataLoader
 import torch.optim as optim
+
+# constants
+batch_size = 4
+n_epochs = 1000
+lr = 0.001
+use_gpu = torch.cuda.is_available()
 
 def exp_lr_scheduler(optimizer, epoch, init_lr=0.001, lr_decay_epoch=7):
     """Decay learning rate by a factor of 0.1 every lr_decay_epoch epochs."""
@@ -89,12 +95,7 @@ def train_model(model, criterion, optimizer, lr_scheduler, num_epochs=25):
     print('Best val Acc: {:4f}'.format(best_acc))
     return best_model
 
-if __name__ == "__main__":
-    
-    # constants
-    batch_size = 4 
-    n_epochs = 1000
-    lr = 0.001
+def main():
 
     # load dataset
     transform = transforms.Compose([ToTensor()])
@@ -102,7 +103,6 @@ if __name__ == "__main__":
                                 '../data/alov300/alov300++_rectangleAnnotation_full/',
                                 transform)
     dataloader = DataLoader(alov, batch_size=batch_size, shuffle=True, num_workers=4)
-    use_gpu = torch.cuda.is_available()
 
     # load model
     net = model.GoNet()
@@ -111,3 +111,6 @@ if __name__ == "__main__":
     loss_fn = torch.nn.L1Loss(size_average = False)
     optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
     net = train_model(net, loss_fn, optimizer, exp_lr_scheduler, num_epochs=n_epochs)
+
+if __name__ == "__main__":
+    main()
