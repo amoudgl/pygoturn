@@ -116,6 +116,23 @@ class ToTensor(object):
                 'currbb': torch.from_numpy(currbb)
                 }
 
+class Normalize(object):
+    """Normalize sample images"""
+
+    def __call__(self, sample):
+        prev_img, curr_img, currbb = sample['previmg'], sample['currimg'], sample['currbb']
+        self.mean = [104, 117, 123]
+        prev_img = prev_img.astype(float)
+        curr_img = curr_img.astype(float)
+        prev_img -= np.array(self.mean).astype(float)
+        curr_img -= np.array(self.mean).astype(float)
+        currbb /= 10;
+        return {'previmg': prev_img,
+                'currimg': curr_img,
+                'currbb': currbb
+                }
+
+
 def show_batch(sample_batched):
     """Show images with bounding boxes for a batch of samples."""
 
