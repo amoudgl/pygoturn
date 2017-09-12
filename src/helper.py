@@ -2,6 +2,7 @@ import numpy as np
 from skimage import io, transform, img_as_ubyte
 import torch
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 # Ignore warnings
@@ -104,11 +105,35 @@ class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
     def __call__(self, sample):
-        image, bb = sample['image'], sample['bb']
+        prev_img, curr_img, currbb = sample['previmg'], sample['currimg'], sample['currbb']
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
-        image = image.transpose((2, 0, 1))
-        return {'image': torch.from_numpy(image),
-                'bb': torch.from_numpy(bb)}
+        prev_img = prev_img.transpose((2, 0, 1))
+        curr_img = curr_img.transpose((2, 0, 1))
+        return {'previmg': torch.from_numpy(prev_img),
+                'currimg': torch.from_numpy(curr_img),
+                'currbb': torch.from_numpy(currbb)
+                }
+
+def show_batch(sample_batched):
+    """Show images with bounding boxes for a batch of samples."""
+
+    previmg_batch, currimg_batch, currbb_batch = \
+            sample_batched['previmg'], sample_batched['currimg'], sample_batched['currbb']
+    batch_size = len(previmg_batch)
+    im_size = previmg_batch.size(2)
+    grid1 = utils.make_grid(previmg_batch)
+    grid2 = utils.make_grid(currimg_batch)
+    f, axarr = plt.subplots(2)
+    axarr[0].imshow(grid1.numpy().transpose((1, 2, 0)))
+    axarr[0].set_title('Previous frame images')
+    axarr[1].imshow(grid2.numpy().transpose((1, 2, 0)))
+    axarr[1].set_title('Current frame images with bounding boxes')
+    for i in range(batch_size):
+        bb = currbb_batch[i]
+        bb = bb.numpy()
+        rect = patches.Rectangle((bb[0]+i*im_size, bb[1]),bb[2],bb[3],linewidth=1,edgecolor='r',facecolor='none')
+        axarr[1].add_patch(rect)
+    plt.show()
 
