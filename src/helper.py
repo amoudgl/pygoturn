@@ -11,6 +11,12 @@ from PIL import Image
 warnings.filterwarnings("ignore")
 
 class Rescale(object):
+    """Rescale image and bounding box.
+    Args:
+        output_size (tuple or int): Desired output size. If int, square crop
+            is made.
+    
+    """
     def __init__(self, output_size):
         assert isinstance(output_size, (int, tuple))
         self.output_size = output_size
@@ -34,7 +40,7 @@ class Rescale(object):
         return {'image': img, 'bb':bb}
 
 class CropPrev(object):
-    """Crop the previous image using the bounding box specifications.
+    """Crop the previous frame image using the bounding box specifications.
 
     Args:
         output_size (tuple or int): Desired output size. If int, square crop
@@ -68,7 +74,7 @@ class CropPrev(object):
         return {'image':res, 'bb':bb}
 
 class CropCurr(object):
-    """Crop the current image using the bounding box specifications.
+    """Crop the current frame image using the bounding box specifications.
 
     Args:
         output_size (tuple or int): Desired output size. If int, square crop
@@ -117,7 +123,7 @@ class ToTensor(object):
                 }
 
 class Normalize(object):
-    """Normalize sample images"""
+    """Returns image with zero mean and scales bounding box by factor of 10."""
 
     def __call__(self, sample):
         prev_img, curr_img, currbb = sample['previmg'], sample['currimg'], sample['currbb']
@@ -153,4 +159,3 @@ def show_batch(sample_batched):
         rect = patches.Rectangle((bb[0]+i*im_size, bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
         axarr[1].add_patch(rect)
     plt.show()
-

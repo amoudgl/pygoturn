@@ -40,21 +40,23 @@ class ALOVDataset(Dataset):
                     next_idx = frame_idxs[i+1]
                     self.x.append([frames[idx], frames[next_idx]])
                     self.y.append([annotations[i], annotations[i+1]])
-                # frames = list(frames[frame_idxs])
-                # self.x.extend(frames)
-        self.len = len(self.y) # subtract -1 because of tuple input
+        self.len = len(self.y)
         self.x = np.array(self.x)
         self.y = np.array(self.y)
-
+    
+    # return size of dataset
     def __len__(self):
         return self.len
-
+    
+    # return transformed sample
     def __getitem__(self, idx):
 	sample = self.get_sample(idx)
         if (self.transform):
             sample = self.transform(sample)
         return sample
 
+    # return sample without transformation
+    # for visualization purpose
     def get_sample(self, idx):
         prev = io.imread(self.x[idx][0])
         curr = io.imread(self.x[idx][1])
@@ -73,7 +75,7 @@ class ALOVDataset(Dataset):
         curr_obj = scale(curr_obj)
         curr_img = curr_obj['image']
         currbb = curr_obj['bb']
-        currbb = np.asarray(currbb)
+        currbb = np.array(currbb)
         sample = {'previmg': prev_img, 
                   'currimg': curr_img,
                   'currbb' : currbb
@@ -90,7 +92,10 @@ class ALOVDataset(Dataset):
         return [left, top, right, bottom]
         # return [left, upper, right-left, lower-upper]
 
-    # helper function to display images with ground truth bounding box
+    # helper function to display image at a particular index with ground truth bounding box
+    # arguments: (idx, i)
+    #            idx - index
+    #             i - 0 for previous frame and 1 for current frame
     def show(self, idx, i):
         im = io.imread(self.x[idx][i])
         bb = self.get_bb(self.y[idx][i])
@@ -100,6 +105,8 @@ class ALOVDataset(Dataset):
         ax.add_patch(rect)
         plt.show()
 
+    # helper function to display sample, which is passed to neural net
+    # display previous frame and current frame with bounding box
     def show_sample(self, idx):
         x = self.get_sample(idx)
         f, (ax1, ax2) = plt.subplots(1, 2)

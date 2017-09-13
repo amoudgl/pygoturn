@@ -16,7 +16,7 @@ import numpy as np
 batch_size = 1
 n_epochs = 100
 lr = 1e-6
-save_dir = '../saved_checkpoints/'
+save_dir = '../saved_checkpoints/exp2/'
 use_gpu = torch.cuda.is_available()
 
 def exp_lr_scheduler(optimizer, epoch, init_lr=lr, lr_decay_epoch=5):
@@ -33,24 +33,18 @@ def exp_lr_scheduler(optimizer, epoch, init_lr=lr, lr_decay_epoch=5):
 
 def train_model(model, dataloader, criterion, optimizer, lr_scheduler, num_epochs=25):
     since = time.time()
-
-#    best_model = model
-#    best_acc = 0.0
     dataset_size = dataloader.dataset.len
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
-        # Each epoch has a training and validation phase
         optimizer = lr_scheduler(optimizer, epoch)
-#        model.train(True)  # Set model to training mode
-
         running_loss = 0.0
         i = 0
-        # Iterate over data.
+        # iterate over data
         for data in dataloader:
-            # get the inputs
+            # get the inputs and labels
             x1, x2, y = data['previmg'], data['currimg'], data['currbb']
 
             # wrap them in Variable
@@ -67,7 +61,7 @@ def train_model(model, dataloader, criterion, optimizer, lr_scheduler, num_epoch
             output = model(x1, x2)
             loss = criterion(output, y)
 
-            # backward + optimize only if in training phase
+            # backward + optimize
             loss.backward()
             optimizer.step()
 
@@ -80,17 +74,10 @@ def train_model(model, dataloader, criterion, optimizer, lr_scheduler, num_epoch
         print('Loss: {:.4f}'.format(epoch_loss))
         path = save_dir + 'model_n_epoch_' + str(epoch) + '_loss_' + str(round(epoch_loss, 3)) + '.pth'
         torch.save(model.state_dict(), path)
-        print('Checkpoint saved!')
-
-        # deep copy the model
-#        if epoch_loss < best_loss:
-#            best_loss = epoch_loss
-#            best_model = copy.deepcopy(model)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
-#    print('Best val Acc: {:4f}'.format(best_acc))
     return model
 
 def main():
@@ -106,10 +93,10 @@ def main():
     net = model.GoNet()
     if use_gpu:
         net = net.cuda()
-#    for param in net.features.parameters():
-#        param.requires_grad = False
     loss_fn = torch.nn.L1Loss(size_average = False)
     optimizer = optim.SGD(net.classifier.parameters(), lr=lr, momentum=0.9)
+
+    # start training
     net = train_model(net, dataloader, loss_fn, optimizer, exp_lr_scheduler, num_epochs=n_epochs)
 
 if __name__ == "__main__":
