@@ -43,6 +43,8 @@ class ALOVDataset(Dataset):
                 # frames = list(frames[frame_idxs])
                 # self.x.extend(frames)
         self.len = len(self.y) # subtract -1 because of tuple input
+        self.x = np.array(self.x)
+        self.y = np.array(self.y)
 
     def __len__(self):
         return self.len
