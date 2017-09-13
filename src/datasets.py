@@ -33,12 +33,16 @@ class ALOVDataset(Dataset):
                 f = open(vid_ann, "r")
                 annotations = f.readlines()
                 f.close()
-                self.y.extend(annotations)
                 frame_idxs = [int(ann.split(' ')[0])-1 for ann in annotations]
                 frames = np.array(frames)
-                frames = list(frames[frame_idxs])
-                self.x.extend(frames)
-        self.len = len(self.y)-1 # subtract -1 because of tuple input
+                for i in xrange(len(frame_idxs)-1):
+                    idx = frame_idxs[i]
+                    next_idx = frame_idxs[i+1]
+                    self.x.append([frames[idx], frames[next_idx]])
+                    self.y.append([annotations[i], annotations[i+1]])
+                # frames = list(frames[frame_idxs])
+                # self.x.extend(frames)
+        self.len = len(self.y) # subtract -1 because of tuple input
 
     def __len__(self):
         return self.len
@@ -50,10 +54,10 @@ class ALOVDataset(Dataset):
         return sample
 
     def get_sample(self, idx):
-        prev = io.imread(self.x[idx])
-        curr = io.imread(self.x[idx+1])
-        prevbb = self.get_bb(idx) 
-        currbb = self.get_bb(idx+1)
+        prev = io.imread(self.x[idx][0])
+        curr = io.imread(self.x[idx][1])
+        prevbb = self.get_bb(self.y[idx][0]) 
+        currbb = self.get_bb(self.y[idx][1])
         # Crop previous image with height and width twice the prev bounding box height and width
         # Scale the cropped image to (227,227,3)
         crop_prev = CropPrev(128)
@@ -75,8 +79,8 @@ class ALOVDataset(Dataset):
 	return sample
 
     # given annotation, returns bounding box in the format: (left, upper, width, height)
-    def get_bb(self, idx):
-        ann = self.y[idx].strip().split(' ')
+    def get_bb(self, ann):
+        ann = ann.strip().split(' ')
         left = min(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
         top = min(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
         right = max(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
@@ -85,9 +89,9 @@ class ALOVDataset(Dataset):
         # return [left, upper, right-left, lower-upper]
 
     # helper function to display images with ground truth bounding box
-    def show(self, idx):
-        im = io.imread(self.x[idx])
-        bb = self.get_bb(idx)
+    def show(self, idx, i):
+        im = io.imread(self.x[idx][i])
+        bb = self.get_bb(self.y[idx][i])
         fig,ax = plt.subplots(1)
         ax.imshow(im)
         rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
