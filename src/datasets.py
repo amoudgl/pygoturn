@@ -43,14 +43,14 @@ class ALOVDataset(Dataset):
         self.len = len(self.y)
         self.x = np.array(self.x)
         self.y = np.array(self.y)
-    
+
     # return size of dataset
     def __len__(self):
         return self.len
-    
+
     # return transformed sample
     def __getitem__(self, idx):
-	sample = self.get_sample(idx)
+        sample = self.get_sample(idx)
         if (self.transform):
             sample = self.transform(sample)
         return sample
@@ -77,10 +77,10 @@ class ALOVDataset(Dataset):
         currbb = curr_obj['bb']
         currbb = np.array(currbb)
         sample = {'previmg': prev_img, 
-                  'currimg': curr_img,
-                  'currbb' : currbb
-                  }
-	return sample
+                'currimg': curr_img,
+                'currbb' : currbb
+                }
+        return sample
 
     # given annotation, returns bounding box in the format: (left, upper, width, height)
     def get_bb(self, ann):
@@ -90,7 +90,6 @@ class ALOVDataset(Dataset):
         right = max(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
         bottom = max(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
         return [left, top, right, bottom]
-        # return [left, upper, right-left, lower-upper]
 
     # helper function to display image at a particular index with ground truth bounding box
     # arguments: (idx, i)
