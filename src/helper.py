@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from skimage import io, transform, img_as_ubyte
 import torch
 import matplotlib.pyplot as plt
@@ -68,8 +69,8 @@ class CropPrev(object):
         right = left + 2*w
         bottom = top + 2*h
         box = (left, top, right, bottom)
-
-        res = np.asarray(im.crop(box))
+	box = tuple([int(math.floor(x)) for x in box])
+        res = np.array(im.crop(box))
         bb = [bb[0]-left, bb[1]-top, bb[2]-left, bb[3]-top]
         return {'image':res, 'bb':bb}
 
@@ -102,7 +103,8 @@ class CropCurr(object):
         right = left + 2*w
         bottom = top + 2*h
         box = (left, top, right, bottom)
-        res = np.asarray(im.crop(box))
+	box = tuple([int(math.floor(x)) for x in box])
+        res = np.array(im.crop(box))
         bb = [currbb[0]-left, currbb[1]-top, currbb[2]-left, currbb[3]-top]
         return {'image':res, 'bb':bb}
 
