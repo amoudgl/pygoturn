@@ -57,25 +57,30 @@ class Tester:
         x1, x2 = sample['previmg'], sample['currimg']
         y = self.model(x1, x2)
         bb = y.data.cpu().numpy().transpose((1,0))
-	bb = bb*10
-	prevbb = self.prev_rect
-	w = prevbb[2]-prevbb[0]
-	h = prevbb[3]-prevbb[1]
-	new_w = 2*w
-	new_h = 2*h
-	ww = 227
-	hh = 227
-	# unscale
-	bb = [bb[0]*new_w/ww, bb[1]*new_h/hh, bb[2]*new_w/ww, bb[3]*new_h/hh]
-	left = prevbb[0]-w/2
-	top = prevbb[1]-h/2
-	# uncrop
-	bb = [bb[0]+left, bb[1]+top, bb[2]+left, bb[3]+top]	
-	return bb
-        
+        bb = bb[:,0]
+        bb = bb*10
+        prevbb = self.prev_rect
+        w = prevbb[2]-prevbb[0]
+        h = prevbb[3]-prevbb[1]
+        new_w = 2*w
+        new_h = 2*h
+        ww = 227
+        hh = 227
+        # unscale
+        bb = np.array([bb[0]*new_w/ww, bb[1]*new_h/hh, bb[2]*new_w/ww, bb[3]*new_h/hh])
+        left = prevbb[0]-w/2
+        top = prevbb[1]-h/2
+        # uncrop
+        bb = np.array([bb[0]+left, bb[1]+top, bb[2]+left, bb[3]+top])
+        return bb
+
     def test(self):
-        
-        
+        # show initial image with rectange
+        for i in xrange(self.len):
+            sample = self[i]
+            curr_rect = self.get_rect(sample)
+            # show rectangle
+            self.prev_rect = curr_rect
 
 def main():
     model_path = '../saved_checkpoints/exp2/model_n_epoch_14_loss_6.698.pth'
@@ -83,3 +88,6 @@ def main():
     save_dir = ''
     tester = Tester(data_dir, model_path, save_dir)
     tester.test()
+
+if __name__ == "__main__":
+    main()
