@@ -16,8 +16,31 @@ import numpy as np
 batch_size = 1
 n_epochs = 100
 lr = 1e-6
-save_dir = '../saved_checkpoints/exp2/'
+save_dir = '../saved_checkpoints/exp3/'
 use_gpu = torch.cuda.is_available()
+
+
+def evaluate(model, dataloader, criterion, epoch):
+    model = model.eval()
+    dataset = dataloader.dataset
+    running_loss = 0
+    # test on a sample sequence from training set itself
+    for i in xrange(64):
+        sample = dataset[i]
+        sample['currimg'] = sample['currimg'][None,:,:,:]
+        sample['previmg'] = sample['previmg'][None,:,:,:]
+        x1, x2 = sample['previmg'], sample['currimg']
+        y = sample['currbb']
+        x1 = Variable(x1.cuda())
+        x2 = Variable(x2.cuda())
+        y = Variable(y.cuda(), requires_grad=False)
+        output = model(x1, x2)
+        loss = criterion(output, y)
+        running_loss += loss.data[0]
+        print('[validation] epoch = %d, i = %d, loss = %f' % (epoch, i, loss.data[0]))
+
+    seq_loss = running_loss/64
+    return seq_loss
 
 def exp_lr_scheduler(optimizer, epoch, init_lr=lr, lr_decay_epoch=5):
     """Decay learning rate by a factor of 0.1 every lr_decay_epoch epochs."""
@@ -38,6 +61,7 @@ def train_model(model, dataloader, criterion, optimizer, lr_scheduler, num_epoch
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
+        model.train()
 
         optimizer = lr_scheduler(optimizer, epoch)
         running_loss = 0.0
@@ -66,12 +90,14 @@ def train_model(model, dataloader, criterion, optimizer, lr_scheduler, num_epoch
             optimizer.step()
 
             # statistics
-            print('epoch = %d, i = %d, loss = %f' % (epoch, i, loss.data[0]))
+            print('[training] epoch = %d, i = %d, loss = %f' % (epoch, i, loss.data[0]))
             i = i + 1
             running_loss += loss.data[0]
 
         epoch_loss = running_loss / dataset_size
         print('Loss: {:.4f}'.format(epoch_loss))
+        val_loss = evaluate(model, dataloader, criterion, epoch)
+        print('Validation Loss: {:.4f}'.format(val_loss))
         path = save_dir + 'model_n_epoch_' + str(epoch) + '_loss_' + str(round(epoch_loss, 3)) + '.pth'
         torch.save(model.state_dict(), path)
 
