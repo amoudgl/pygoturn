@@ -117,9 +117,10 @@ def main():
 
     # load model
     net = model.GoNet()
+    loss_fn = torch.nn.L1Loss(size_average = False)
     if use_gpu:
         net = net.cuda()
-    loss_fn = torch.nn.L1Loss(size_average = False)
+        loss_fn = loss_fn.cuda()
     optimizer = optim.SGD(net.classifier.parameters(), lr=lr, momentum=0.9)
 
     # start training
