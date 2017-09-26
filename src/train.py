@@ -21,7 +21,7 @@ use_gpu = torch.cuda.is_available()
 
 
 def evaluate(model, dataloader, criterion, epoch):
-    model = model.eval()
+    model.eval()
     dataset = dataloader.dataset
     running_loss = 0
     # test on a sample sequence from training set itself
