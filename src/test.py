@@ -1,4 +1,5 @@
 # necessary imports
+import os
 import time
 import copy
 import datasets
@@ -11,6 +12,14 @@ from helper import ToTensor, Normalize, show_batch
 import torch.optim as optim
 import numpy as np
 from helper import *
+from get_bbox import *
+
+
+use_gpu = torch.cuda.is_available()
+parser = argparse.ArgumentParser(description='GOTURN Training')
+parser.add_argument('-weights', '--model-weights', default='../saved_checkpoints/exp3/model_n_epoch_47_loss_2.696.pth', type=str, help='path to trained model')
+parser.add_argument('-save', '--save-directory', default='', type=str, help='path to save directory')
+parser.add_argument('-data', '--data-directory', default='../data/alov300/imagedata++/02-SurfaceCover/02-SurfaceCover_video00002', type=str, help='path to video frames')
 
 class Tester:
     """Test Dataset for Tester"""
@@ -19,6 +28,8 @@ class Tester:
         self.transform = transforms.Compose([Normalize(), ToTensor()])
         self.model_path = model_path
         self.model = model.GoNet()
+        if use_gpu:
+            self.model = self.model.cuda()
         self.model.load_state_dict(torch.load(model_path))
         frames = os.listdir(root_dir)
         self.len = len(frames)-1
@@ -27,10 +38,12 @@ class Tester:
         frames.sort()
         self.x = []
         for i in xrange(self.len):
-            x.append([frames[i], frames[i+1]])
+            self.x.append([frames[i], frames[i+1]])
         self.x = np.array(self.x)
         # code for previous rectange
-        self.prev_rect = init_rect
+        init_bbox = bbox_coordinates(self.x[0][0])
+        print init_bbox
+        self.prev_rect = init_bbox  
 
 
     def __getitem__(self, idx):
@@ -55,6 +68,8 @@ class Tester:
 
     def get_rect(self, sample):
         x1, x2 = sample['previmg'], sample['currimg']
+        x1 = x1[None,:,:,:]
+        x2 = x2[None,:,:,:]
         y = self.model(x1, x2)
         bb = y.data.cpu().numpy().transpose((1,0))
         bb = bb[:,0]
@@ -76,18 +91,24 @@ class Tester:
 
     def test(self):
         # show initial image with rectange
+        fig,ax = plt.subplots(1)
         for i in xrange(self.len):
             sample = self[i]
-            curr_rect = self.get_rect(sample)
+            bb = self.get_rect(sample)
             # show rectangle
-            self.prev_rect = curr_rect
+            im = io.imread(self.x[i][1])
+            ax.clear()
+            ax.imshow(im)
+            rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
+            ax.add_patch(rect)
+            self.prev_rect = bb
+        plt.show()
 
 def main():
-    model_path = '../saved_checkpoints/exp2/model_n_epoch_14_loss_6.698.pth'
-    data_dir = '/Neutron7/abhinav.moudgil/goturn/data/alov300/imagedata++/02-SurfaceCover/02-SurfaceCover_video00002'
-    save_dir = ''
-    tester = Tester(data_dir, model_path, save_dir)
-    tester.test()
+    args = parser.parse_args()
+    print args
+    tester = Tester(args.data_directory, args.model_weights, args.save_directory)
+    #tester.test()
 
 if __name__ == "__main__":
     main()
