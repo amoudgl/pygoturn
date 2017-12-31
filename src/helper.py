@@ -69,7 +69,7 @@ class CropPrev(object):
         right = left + 2*w
         bottom = top + 2*h
         box = (left, top, right, bottom)
-	box = tuple([int(math.floor(x)) for x in box])
+        box = tuple([int(math.floor(x)) for x in box])
         res = np.array(im.crop(box))
         bb = [bb[0]-left, bb[1]-top, bb[2]-left, bb[3]-top]
         return {'image':res, 'bb':bb}
@@ -103,7 +103,7 @@ class CropCurr(object):
         right = left + 2*w
         bottom = top + 2*h
         box = (left, top, right, bottom)
-	box = tuple([int(math.floor(x)) for x in box])
+        box = tuple([int(math.floor(x)) for x in box])
         res = np.array(im.crop(box))
         bb = [currbb[0]-left, currbb[1]-top, currbb[2]-left, currbb[3]-top]
         return {'image':res, 'bb':bb}
@@ -113,33 +113,45 @@ class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
     def __call__(self, sample):
-        prev_img, curr_img, currbb = sample['previmg'], sample['currimg'], sample['currbb']
+        prev_img, curr_img = sample['previmg'], sample['currimg']
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
         prev_img = prev_img.transpose((2, 0, 1))
         curr_img = curr_img.transpose((2, 0, 1))
-        return {'previmg': torch.from_numpy(prev_img).float(),
-                'currimg': torch.from_numpy(curr_img).float(),
-                'currbb': torch.from_numpy(currbb).float()
-                }
+        if 'currbb' in sample: 
+            currbb = sample['currbb']
+            return {'previmg': torch.from_numpy(prev_img).float(),
+                    'currimg': torch.from_numpy(curr_img).float(),
+                    'currbb': torch.from_numpy(currbb).float()
+                   }
+        else:
+            return {'previmg': torch.from_numpy(prev_img).float(),
+                    'currimg': torch.from_numpy(curr_img).float()
+                   }            
 
 class Normalize(object):
     """Returns image with zero mean and scales bounding box by factor of 10."""
 
     def __call__(self, sample):
-        prev_img, curr_img, currbb = sample['previmg'], sample['currimg'], sample['currbb']
+        prev_img, curr_img = sample['previmg'], sample['currimg']
         self.mean = [104, 117, 123]
         prev_img = prev_img.astype(float)
         curr_img = curr_img.astype(float)
         prev_img -= np.array(self.mean).astype(float)
         curr_img -= np.array(self.mean).astype(float)
-        currbb /= 10;
-        return {'previmg': prev_img,
-                'currimg': curr_img,
-                'currbb': currbb
-                }
-
+        
+        if 'currbb' in sample:
+            currbb = sample['currbb']
+            currbb /= 10;
+            return {'previmg': prev_img,
+                    'currimg': curr_img,
+                    'currbb': currbb
+                    }
+        else:
+            return {'previmg': prev_img,
+                    'currimg': curr_img
+                   }
 
 def show_batch(sample_batched):
     """Show images with bounding boxes for a batch of samples."""
@@ -161,3 +173,30 @@ def show_batch(sample_batched):
         rect = patches.Rectangle((bb[0]+i*im_size, bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
         axarr[1].add_patch(rect)
     plt.show()
+
+# given currbb output from model and previous bounding box values in 
+# the original image dimensions, return the current bouding box values 
+# in the orignal image dimensions
+def inverse_transform(currbb, orig_prevbb):
+    # unscaling
+    bb = orig_prevbb
+    patch_width = bb[2]-bb[0]
+    patch_height = bb[3]-bb[1]
+    patch_width = patch_width*2
+    patch_height = patch_height*2
+    bb = currbb
+    w = 227
+    h = 227
+    bb = [bb[0]*patch_width/w, bb[1]*patch_height/h, bb[2]*patch_width/w, bb[3]*patch_height/h]
+    patchbb = bb
+    
+    # uncropping
+    bb = orig_prevbb
+    w = bb[2]-bb[0]
+    h = bb[3]-bb[1]
+    left = bb[0]-w/2
+    top = bb[1]-h/2
+    right = left + 2*w
+    bottom = top + 2*h
+    newbb = [left+patchbb[0], top+patchbb[1], left+patchbb[2], top+patchbb[3]] 
+    return newbb
