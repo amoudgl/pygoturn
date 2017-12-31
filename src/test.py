@@ -83,7 +83,7 @@ class TesterOTB:
         y = self.model(x1, x2)
         bb = y.data.cpu().numpy().transpose((1,0))
         bb = bb[:,0]
-        bb = list(bb*10)
+        bb = list(bb*(227./10)) # unscaling
         bb = inverse_transform(bb, self.prev_rect)
         print bb
         return bb

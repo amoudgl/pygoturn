@@ -143,7 +143,7 @@ class Normalize(object):
         
         if 'currbb' in sample:
             currbb = sample['currbb']
-            currbb /= 10;
+            currbb /= (10./227);
             return {'previmg': prev_img,
                     'currimg': curr_img,
                     'currbb': currbb
