@@ -46,16 +46,18 @@ class TesterOTB:
         lines = f.readlines()
         init_bbox = lines[0].strip().split('\t')
         init_bbox = [float(x) for x in init_bbox]
-        init_bbox = [init_bbox[0], init_bbox[1], init_bbox[0]+init_bbox[2], init_bbox[1]+init_bbox[3]] 
+        init_bbox = [init_bbox[0], init_bbox[1], init_bbox[0]+init_bbox[2], init_bbox[1]+init_bbox[3]]
         init_bbox = np.array(init_bbox)
         print init_bbox
-        self.prev_rect = init_bbox  
+        self.prev_rect = init_bbox
 
-
+    # returns transformed pytorch tensor which is passed directly to the network
     def __getitem__(self, idx):
         sample = self.get_sample(idx)
         return self.transform(sample)
 
+    # returns cropped and scaled previous frame and current frame
+    # in numpy format
     def get_sample(self, idx):
         prev = io.imread(self.x[idx][0])
         curr = io.imread(self.x[idx][1])
@@ -72,6 +74,8 @@ class TesterOTB:
         sample = {'previmg': prev_img, 'currimg': curr_img}
         return sample
 
+    # given previous frame and next frame, regress the bounding box coordinates
+    # in the original image dimensions
     def get_rect(self, sample):
         x1, x2 = sample['previmg'], sample['currimg']
         if use_gpu:
@@ -88,6 +92,7 @@ class TesterOTB:
         print bb
         return bb
 
+    # loop through all the frames of test sequence and track target object
     def test(self):
         fig,ax = plt.subplots(1)
         for i in xrange(self.len):

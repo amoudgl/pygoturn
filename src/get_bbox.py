@@ -1,12 +1,12 @@
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets  import RectangleSelector
 from PIL import Image
 
-minx = 0 
-miny = 0 
-maxx = 0 
-maxy = 0 
+minx = 0
+miny = 0
+maxx = 0
+maxy = 0
 
 def line_select_callback(eclick, erelease):
     x1, y1 = eclick.xdata, eclick.ydata
@@ -20,6 +20,8 @@ def line_select_callback(eclick, erelease):
     maxx = max(x1,x2)
     maxy = max(y1,y2)
 
+# displays an image to user for selecting target tracking object
+# returns selected bounding box
 def bbox_coordinates(img_path):
     dpi = 80.0
     image = Image.open(img_path).convert('RGB')
@@ -30,9 +32,9 @@ def bbox_coordinates(img_path):
     fig.add_axes(ax)
     im = ax.imshow(image, aspect='normal')
     rs = RectangleSelector(ax, line_select_callback,
-                           drawtype='box', useblit=False, button=[1], 
-                           minspanx=5, minspany=5, spancoords='pixels', 
+                           drawtype='box', useblit=False, button=[1],
+                           minspanx=5, minspany=5, spancoords='pixels',
                            interactive=True)
 
     plt.show()
-    return np.array([minx, miny, maxx, maxy])   
+    return np.array([minx, miny, maxx, maxy])

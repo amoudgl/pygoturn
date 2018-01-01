@@ -39,7 +39,7 @@ class GoNet(nn.Module):
                 nn.Dropout(),
                 nn.Linear(4096, 4),
                 )
-    
+
     # feed forward through the neural net
     def forward(self, x, y):
         x1 = self.features(x)

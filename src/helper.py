@@ -16,7 +16,7 @@ class Rescale(object):
     Args:
         output_size (tuple or int): Desired output size. If int, square crop
             is made.
-    
+
     """
     def __init__(self, output_size):
         assert isinstance(output_size, (int, tuple))
@@ -119,7 +119,7 @@ class ToTensor(object):
         # torch image: C X H X W
         prev_img = prev_img.transpose((2, 0, 1))
         curr_img = curr_img.transpose((2, 0, 1))
-        if 'currbb' in sample: 
+        if 'currbb' in sample:
             currbb = sample['currbb']
             return {'previmg': torch.from_numpy(prev_img).float(),
                     'currimg': torch.from_numpy(curr_img).float(),
@@ -128,7 +128,7 @@ class ToTensor(object):
         else:
             return {'previmg': torch.from_numpy(prev_img).float(),
                     'currimg': torch.from_numpy(curr_img).float()
-                   }            
+                   }
 
 class Normalize(object):
     """Returns image with zero mean and scales bounding box by factor of 10."""
@@ -140,7 +140,7 @@ class Normalize(object):
         curr_img = curr_img.astype(float)
         prev_img -= np.array(self.mean).astype(float)
         curr_img -= np.array(self.mean).astype(float)
-        
+
         if 'currbb' in sample:
             currbb = sample['currbb']
             currbb = currbb*(10./227);
@@ -174,29 +174,25 @@ def show_batch(sample_batched):
         axarr[1].add_patch(rect)
     plt.show()
 
-# given currbb output from model and previous bounding box values in 
-# the original image dimensions, return the current bouding box values 
+# given currbb output from model and previous bounding box values in
+# the original image dimensions, return the current bouding box values
 # in the orignal image dimensions
 def inverse_transform(currbb, orig_prevbb):
     # unscaling
-    bb = orig_prevbb
-    patch_width = bb[2]-bb[0]
-    patch_height = bb[3]-bb[1]
-    patch_width = patch_width*2
-    patch_height = patch_height*2
-    bb = currbb
-    w = 227
-    h = 227
-    bb = [bb[0]*patch_width/w, bb[1]*patch_height/h, bb[2]*patch_width/w, bb[3]*patch_height/h]
-    patchbb = bb
-    
+    patch_width = (orig_prevbb[2]-orig_prevbb[0])*2
+    patch_height = (orig_prevbb[3]-orig_prevbb[1])*2
+    # input image size to network
+    net_w = 227
+    net_h = 227
+    unscaledbb = [currbb[0]*patch_width/net_w,
+                  currbb[1]*patch_height/net_h,
+                  currbb[2]*patch_width/net_w,
+                  currbb[3]*patch_height/net_h]
     # uncropping
     bb = orig_prevbb
     w = bb[2]-bb[0]
     h = bb[3]-bb[1]
     left = bb[0]-w/2
     top = bb[1]-h/2
-    right = left + 2*w
-    bottom = top + 2*h
-    newbb = [left+patchbb[0], top+patchbb[1], left+patchbb[2], top+patchbb[3]] 
-    return newbb
+    orig_currbb = [left+unscaledbb[0], top+unscaledbb[1], left+unscaledbb[2], top+unscaledbb[3]]
+    return orig_currbb

@@ -1,5 +1,5 @@
 from __future__ import print_function, division
-import os 
+import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,7 +21,7 @@ class ALOVDataset(Dataset):
         self.y = []
         self.x = []
         self.transform = transform
-        envs = os.listdir(target_dir)  
+        envs = os.listdir(target_dir)
         for env in envs:
             env_videos = os.listdir(root_dir + env)
             for vid in env_videos:
@@ -60,7 +60,7 @@ class ALOVDataset(Dataset):
     def get_sample(self, idx):
         prev = io.imread(self.x[idx][0])
         curr = io.imread(self.x[idx][1])
-        prevbb = self.get_bb(self.y[idx][0]) 
+        prevbb = self.get_bb(self.y[idx][0])
         currbb = self.get_bb(self.y[idx][1])
         # Crop previous image with height and width twice the prev bounding box height and width
         # Scale the cropped image to (227,227,3)
@@ -76,7 +76,7 @@ class ALOVDataset(Dataset):
         curr_img = curr_obj['image']
         currbb = curr_obj['bb']
         currbb = np.array(currbb)
-        sample = {'previmg': prev_img, 
+        sample = {'previmg': prev_img,
                 'currimg': curr_img,
                 'currbb' : currbb
                 }
