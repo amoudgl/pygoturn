@@ -60,9 +60,9 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs, lr, save_di
 
         optimizer = exp_lr_scheduler(optimizer, epoch, lr)
         running_loss = 0.0
-        i = 0
+
         # iterate over data
-        for data in dataloader:
+        for i, data in enumerate(dataloader):
             # get the inputs and labels
             x1, x2, y = data['previmg'], data['currimg'], data['currbb']
 
@@ -86,7 +86,6 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs, lr, save_di
 
             # statistics
             print('[training] epoch = %d, i = %d, loss = %f' % (epoch, i, loss.data[0]))
-            i = i + 1
             running_loss += loss.data[0]
 
         epoch_loss = running_loss / dataset_size
