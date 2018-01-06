@@ -126,7 +126,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
         self.bbox_dir = bbox_dir
         self.x, self.y = self.parse_data(self.image_dir, self.bbox_dir)
 
-    # parses xml file and returns list of all the bounding boxes
+    # parses xml file and returns list of all the bounding boxes in the given file
     def get_bb(self, bbox_filepath):
         tree = ET.parse(bbox_filepath)
         root = tree.getroot()
@@ -153,7 +153,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
                 ans.append(an)
         return ans
 
-    # return size of dataset
+    # returns size of dataset
     def __len__(self):
         return self.len
 
@@ -184,10 +184,10 @@ class ILSVRC2014_DET_Dataset(Dataset):
                 y.extend(annotations)
         self.len = len(y)
         print('ImageNet dataset parsing done.')
-        print('Total number of objects = ', self.len)
+        print('Total number of objects = ', self.len) # should return 239284
         return x, y
 
-    # returns object at specific index
+    # displays object at specific index with bounding box
     def display_object(self, idx):
         im = io.imread(self.x[idx])
         bb = self.y[idx]
