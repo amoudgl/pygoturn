@@ -65,10 +65,9 @@ class ALOVDataset(Dataset):
         currbb = self.get_bb(self.y[idx][1])
         # Crop previous image with height and width twice the prev bounding box height and width
         # Scale the cropped image to (227,227,3)
-        crop_prev = CropPrev(128)
-        crop_curr = CropCurr(128)
+        crop_curr = transforms.Compose([CropCurr()])
         scale = Rescale((227,227))
-        transform_prev = transforms.Compose([crop_prev, scale])
+        transform_prev = transforms.Compose([CropPrev(), scale])
         prev_img = transform_prev({'image':prev, 'bb':prevbb})['image']
         # Crop current image with height and width twice the prev bounding box height and width
         # Scale the cropped image to (227,227,3)
@@ -81,6 +80,13 @@ class ALOVDataset(Dataset):
                 'currimg': curr_img,
                 'currbb' : currbb
                 }
+        return sample
+
+    # returns original image and bounding box
+    def get_orig_sample(self, idx, i=1):
+        curr = io.imread(self.x[idx][i])
+        currbb = self.get_bb(self.y[idx][i])
+        sample = {'image': curr, 'bb': currbb}
         return sample
 
     # given annotation, returns bounding box in the format: (left, upper, width, height)
@@ -97,8 +103,9 @@ class ALOVDataset(Dataset):
     #            idx - index
     #             i - 0 for previous frame and 1 for current frame
     def show(self, idx, i):
-        im = io.imread(self.x[idx][i])
-        bb = self.get_bb(self.y[idx][i])
+        sample = self.get_orig_sample(idx, i)
+        im = sample['image']
+        bb = sample['bb']
         fig,ax = plt.subplots(1)
         ax.imshow(im)
         rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
@@ -121,10 +128,32 @@ class ALOVDataset(Dataset):
 class ILSVRC2014_DET_Dataset(Dataset):
     """ImageNet 2014 Detection Dataset"""
 
-    def __init__(self, image_dir, bbox_dir, transform=None):
+    def __init__(self, image_dir,
+                 bbox_dir,
+                 transform = None,
+                 lambda_shift_frac = 5.,
+                 lambda_scale_frac = 15.,
+                 min_scale = -0.4,
+                 max_scale = 0.4):
         self.image_dir = image_dir
         self.bbox_dir = bbox_dir
+        self.transform = transform
+        self.lambda_scale_frac = lambda_scale_frac
+        self.lambda_shift_frac = lambda_shift_frac
+        self.min_scale = min_scale
+        self.max_scale = max_scale
         self.x, self.y = self.parse_data(self.image_dir, self.bbox_dir)
+
+    # return transformed sample
+    def __getitem__(self, idx):
+        sample = self.get_sample(idx)
+        if (self.transform):
+            sample = self.transform(sample)
+        return sample
+
+    # returns size of dataset
+    def __len__(self):
+        return self.len
 
     # parses xml file and returns list of all the bounding boxes in the given file
     def get_bb(self, bbox_filepath):
@@ -142,6 +171,43 @@ class ILSVRC2014_DET_Dataset(Dataset):
             bboxes.append(bbox)
         return sz, bboxes
 
+    # return sample without transformation
+    # for visualization purpose
+    def get_sample(self, idx):
+        sample = self.get_orig_sample(idx)
+        curr = sample['image']
+        currbb = sample['bb']
+        prevbb = random_crop(sample,
+                             self.lambda_scale_frac,
+                             self.lambda_shift_frac,
+                             self.min_scale,
+                             self.max_scale)
+        # Crop previous image with height and width twice the prev bounding box height and width
+        # Scale the cropped image to (227,227,3)
+        crop_curr = transforms.Compose([CropCurr()])
+        scale = Rescale((227,227))
+        transform_prev = transforms.Compose([CropPrev(), scale])
+        prev_img = transform_prev({'image':curr, 'bb':currbb})['image']
+        # Crop current image with height and width twice the prev bounding box height and width
+        # Scale the cropped image to (227,227,3)
+        curr_obj = crop_curr({'image':curr, 'prevbb':prevbb, 'currbb':currbb})
+        curr_obj = scale(curr_obj)
+        curr_img = curr_obj['image']
+        currbb = curr_obj['bb']
+        currbb = np.array(currbb)
+        sample = {'previmg': prev_img,
+                'currimg': curr_img,
+                'currbb' : currbb
+                }
+        return sample
+
+    # returns original image and bounding box
+    def get_orig_sample(self, idx):
+        curr = io.imread(self.x[idx])
+        currbb = self.y[idx]
+        sample = {'image': curr, 'bb': currbb}
+        return sample
+
     # given list of object annotations, filter those objects which cover atleast
     # 66% of the image in either dimension
     def filter_ann(self, sz, ann):
@@ -153,12 +219,8 @@ class ILSVRC2014_DET_Dataset(Dataset):
                 ans.append(an)
         return ans
 
-    # returns size of dataset
-    def __len__(self):
-        return self.len
-
     # returns object bounding boxes in 'y' vector
-    # and corresponding image in 'x' vector
+    # and corresponding image path in 'x' vector
     def parse_data(self, image_dir, bbox_dir):
         print('Parsing ImageNet dataset...')
         folders = os.listdir(image_dir)
@@ -189,10 +251,23 @@ class ILSVRC2014_DET_Dataset(Dataset):
 
     # displays object at specific index with bounding box
     def display_object(self, idx):
-        im = io.imread(self.x[idx])
-        bb = self.y[idx]
+        sample = self.get_orig_sample(idx)
+        im = sample['image']
+        bb = sample['bb']
         fig,ax = plt.subplots(1)
         ax.imshow(im)
         rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
         ax.add_patch(rect)
+        plt.show()
+
+    # helper function to display sample, which is passed to neural net
+    # display previous frame and current frame with bounding box
+    def show_sample(self, idx):
+        x = self.get_sample(idx)
+        f, (ax1, ax2) = plt.subplots(1, 2)
+        ax1.imshow(x['previmg'])
+        ax2.imshow(x['currimg'])
+        bb = x['currbb']
+        rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
+        ax2.add_patch(rect)
         plt.show()
