@@ -23,7 +23,6 @@ kGeneratedExamplesPerImage = 10; # generate 10 synthetic samples per image in a 
 transform = transforms.Compose([Normalize(), ToTensor()])
 
 args = None
-pool = None
 parser = argparse.ArgumentParser(description='GOTURN Training')
 parser.add_argument('-n', '--num-batches', default=500000, type=int, help='number of total batches to run')
 parser.add_argument('-lr', '--learning-rate', default=1e-6, type=float, help='initial learning rate')
@@ -38,14 +37,13 @@ parser.add_argument('-seed', '--manual-seed', default=800, type=int, help='set m
 
 def main():
 
-    global args, pool
+    global args
     args = parser.parse_args()
     print(args)
     np.random.seed(args.manual_seed)
     torch.manual_seed(args.manual_seed)
     if use_gpu:
         torch.cuda.manual_seed(args.manual_seed)
-    pool = ThreadPool(args.num_threads)
     # load datasets
     alov = ALOVDataset('../data/alov300/imagedata++/',
                        '../data/alov300/alov300++_rectangleAnnotation_full/',
@@ -69,7 +67,6 @@ def main():
     # initialize optimizer
     optimizer = optim.SGD(net.classifier.parameters(),
                           lr=args.learning_rate,
-                          momentum=args.momentum,
                           weight_decay=0.0005)
 
     if os.path.exists(args.save_directory):
@@ -79,8 +76,6 @@ def main():
 
     # start training
     net = train_model(net, datasets, loss_fn, optimizer)
-    pool.close()
-    pool.join()
 
 def exp_lr_scheduler(optimizer, step, init_lr, gamma, snapshot=50000):
     """Decay learning rate by a factor of 0.1 every lr_decay_epoch epochs."""
