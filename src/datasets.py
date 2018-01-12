@@ -215,7 +215,8 @@ class ILSVRC2014_DET_Dataset(Dataset):
         for an in ann:
             an_width = an[2]-an[0]
             an_height = an[3]-an[1]
-            if (an_width <= (0.66)*sz[0] and an_height <= (0.66)*sz[1]):
+            extra_limit = an_width > 0 and an_height > 0 and an_width*an_height > 0
+            if (an_width <= (0.66)*sz[0] and an_height <= (0.66)*sz[1] and extra_limit):
                 ans.append(an)
         return ans
 
