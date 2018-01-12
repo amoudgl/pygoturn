@@ -215,8 +215,8 @@ class ILSVRC2014_DET_Dataset(Dataset):
         for an in ann:
             an_width = an[2]-an[0]
             an_height = an[3]-an[1]
-            extra_limit = an_width > 0 and an_height > 0 and an_width*an_height > 0
-            if (an_width <= (0.66)*sz[0] and an_height <= (0.66)*sz[1] and extra_limit):
+            area_constraint = an_width > 0 and an_height > 0 and an_width*an_height > 0
+            if (an_width <= (0.66)*sz[0] and an_height <= (0.66)*sz[1] and area_constraint):
                 ans.append(an)
         return ans
 
@@ -247,7 +247,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
                 y.extend(annotations)
         self.len = len(y)
         print('ImageNet dataset parsing done.')
-        print('Total number of objects = ', self.len) # should return 239284
+        print('Total number of annotations in ImageNet Dataset =', self.len) # should return 239283
         return x, y
 
     # displays object at specific index with bounding box
