@@ -27,7 +27,6 @@ pool = None
 parser = argparse.ArgumentParser(description='GOTURN Training')
 parser.add_argument('-n', '--num-batches', default=500000, type=int, help='number of total batches to run')
 parser.add_argument('-lr', '--learning-rate', default=1e-6, type=float, help='initial learning rate')
-parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--gamma', default=0.1, type=float, help='learning rate decay factor')
 parser.add_argument('--lr-decay-step', default=100000, type=int, help='steps after which learning rate decays')
 parser.add_argument('-save', '--save-directory', default='../saved_checkpoints/exp3/', type=str, help='path to save directory')
@@ -35,7 +34,6 @@ parser.add_argument('-lshift', '--lambda-shift-frac', default=5, type=float, hel
 parser.add_argument('-lscale', '--lambda-scale-frac', default=15, type=float, help='lambda-scale for random cropping')
 parser.add_argument('-minsc', '--min-scale', default=-0.4, type=float, help='min-scale for random cropping')
 parser.add_argument('-maxsc', '--max-scale', default=0.4, type=float, help='max-scale for random cropping')
-parser.add_argument('-workers', '--num-threads', default=10, type=int, help='number of threads for random cropping')
 parser.add_argument('-seed', '--manual-seed', default=800, type=int, help='set manual seed value')
 
 def main():
