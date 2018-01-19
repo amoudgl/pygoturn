@@ -27,6 +27,8 @@ parser = argparse.ArgumentParser(description='GOTURN Training')
 parser.add_argument('-n', '--num-batches', default=500000, type=int, help='number of total batches to run')
 parser.add_argument('-lr', '--learning-rate', default=1e-6, type=float, help='initial learning rate')
 parser.add_argument('--gamma', default=0.1, type=float, help='learning rate decay factor')
+parser.add_argument('--momentum', default=0.9, type=float, help='optimizer momentum')
+parser.add_argument('--weight_decay', default=0.0005, type=float, help='optimizer momentum')
 parser.add_argument('--lr-decay-step', default=100000, type=int, help='steps after which learning rate decays')
 parser.add_argument('-save', '--save-directory', default='../saved_checkpoints/exp3/', type=str, help='path to save directory')
 parser.add_argument('-lshift', '--lambda-shift-frac', default=5, type=float, help='lambda-shift for random cropping')
@@ -63,11 +65,32 @@ def main():
     if use_gpu:
         net = net.cuda()
         loss_fn = loss_fn.cuda()
-
+    
     # initialize optimizer
-    optimizer = optim.SGD(net.classifier.parameters(),
-                          lr=args.learning_rate,
-                          weight_decay=0.0005)
+    trainable_weights = []
+    trainable_bias = []
+
+    for name, param in net.classifier.named_parameters():
+        if 'weight' in name:
+            trainable_weights.append(param)
+        elif 'bias' in name:
+            trainable_bias.append(param)
+
+    self.optimizer = optim.SGD(
+        [
+            {
+                'params': trainable_weights,
+                'lr': args.learning_rate * 10
+            },
+            {
+                'params': trainable_bias,
+                'lr': args.learning_rate * 20
+            }
+        ],
+        lr=args.learning_rate,
+        momentum=args.momentum,
+        weight_decay=args.weight_decay
+    )
 
     if os.path.exists(args.save_directory):
         print('Directory %s already exists' % (args.save_directory))
@@ -79,6 +102,7 @@ def main():
 
 def exp_lr_scheduler(optimizer, step, init_lr, gamma, snapshot=50000):
     """Decay learning rate by a factor of 0.1 every lr_decay_epoch epochs."""
+    # TODO: We need to update learning rate to account for lr_mult (i.e. biases * 20, weights * 10)
     lr = init_lr * gamma
     if step % snapshot == 0:
         print('LR is set to {}'.format(lr))
