@@ -150,7 +150,7 @@ def show_batch(sample_batched):
     for i in range(batch_size):
         bb = currbb_batch[i]
         bb = bb.numpy()
-        rect = patches.Rectangle((bb[0]+i*im_size, bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
+        rect = patches.Rectangle((bb[0]+(i%8)*im_size, bb[1]+(i/8)*im_size),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
         axarr[1].add_patch(rect)
     plt.show()
 
