@@ -15,12 +15,14 @@ import torch.optim as optim
 import numpy as np
 from helper import *
 from multiprocessing.dummy import Pool as ThreadPool
+from tensorboardX import SummaryWriter
 
 # constants
 use_gpu = torch.cuda.is_available()
 kSaveModel = 20000 # save model after every 20000 steps
 kGeneratedExamplesPerImage = 10; # generate 10 synthetic samples per image in a dataset
 transform = transforms.Compose([Normalize(), ToTensor()])
+writer = SummaryWriter()
 
 args = None
 parser = argparse.ArgumentParser(description='GOTURN Training')
@@ -123,7 +125,7 @@ def get_training_batch(running_batch_idx, running_batch, dataset):
     elif running_batch_idx + N > 50:
         done = 1
         count_in = 50-running_batch_idx
-        print "count_in =", count_in
+ #       print "count_in =", count_in
         if count_in > 0:
             running_batch['previmg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x1_batch[:count_in,:,:,:]
             running_batch['currimg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x2_batch[:count_in,:,:,:]
@@ -199,6 +201,7 @@ def make_transformed_samples(dataset, args):
 
 def train_model(model, datasets, criterion, optimizer):
 
+    global writer
     since = time.time()
     curr_loss = 0
     lr = args.learning_rate
@@ -227,7 +230,7 @@ def train_model(model, datasets, criterion, optimizer):
             # x1, x2, y = make_training_samples(rand_idx, dataset, args)
 
             running_batch, train_batch, done, running_batch_idx = get_training_batch(running_batch_idx, running_batch, dataset)
-            print 'running_batch_idx =', running_batch_idx
+#            print 'running_batch_idx =', running_batch_idx
             if done:
                 x1 = train_batch['previmg']
                 x2 = train_batch['currimg']
@@ -253,6 +256,7 @@ def train_model(model, datasets, criterion, optimizer):
                 # statistics
                 curr_loss = loss.data[0]
                 itr = itr + 1
+                writer.add_scalar('train/batch_loss', curr_loss, itr)
                 print('[training] step = %d/%d, loss = %f' % (itr, args.num_batches, curr_loss))
                 # sys.stdout.flush()
 
@@ -265,6 +269,8 @@ def train_model(model, datasets, criterion, optimizer):
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
+    writer.export_scalars_to_json("./all_scalars.json")
+    writer.close()
     return model
 
 def evaluate(model, dataloader, criterion, epoch):
