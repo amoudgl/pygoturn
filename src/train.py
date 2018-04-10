@@ -56,6 +56,8 @@ def main():
                                        args.min_scale,
                                        args.max_scale)
     # list of datasets to train on
+    #datasets = [imagenet]
+	# datasets = [imagenet]
     datasets = [alov, imagenet]
     # load model
     net = model.GoNet()
@@ -88,8 +90,66 @@ def exp_lr_scheduler(optimizer, step, init_lr, gamma, snapshot=50000):
 
     return optimizer, lr
 
-# given a dataset sample, generate more samples by synthetic transformations
-def make_training_samples(idx, dataset, args):
+# batch formation regimen pseudocode
+# curr_idx = 0
+# running_batch = np.zeros((50,4))
+# while 1:
+#    temp_batch = tr_batch()
+#    print "curr_idx = ", curr_idx
+#    if curr_idx + 11 <= 50:
+#        running_batch[curr_idx:curr_idx+11] = temp_batch
+#        curr_idx = curr_idx + 11
+#    elif (curr_idx + 11) > 50:
+#        count_in = 50-curr_idx
+#        print "count_in = ", count_in
+#        running_batch[curr_idx:curr_idx+count_in] = temp_batch[:count_in]
+#        model_batch = running_batch
+#        curr_idx = (curr_idx+11)%50
+#        running_batch = np.zeros((50,4))
+#        running_batch[:curr_idx] = temp_batch[count_in:]
+#        break
+
+def get_training_batch(running_batch_idx, running_batch, dataset):
+    done = 0
+    N = kGeneratedExamplesPerImage+1
+    train_batch = None
+
+    x1_batch, x2_batch, y_batch = make_transformed_samples(dataset, args)
+    if running_batch_idx + N <= 50:
+        running_batch['previmg'][running_batch_idx:running_batch_idx+N,:,:,:] = x1_batch
+        running_batch['currimg'][running_batch_idx:running_batch_idx+N,:,:,:] = x2_batch
+        running_batch['currbb'][running_batch_idx:running_batch_idx+N,:] = y_batch
+        running_batch_idx = (running_batch_idx+N)
+    elif running_batch_idx + N > 50:
+        done = 1
+        count_in = 50-running_batch_idx
+        print "count_in =", count_in
+        if count_in > 0:
+            running_batch['previmg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x1_batch[:count_in,:,:,:]
+            running_batch['currimg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x2_batch[:count_in,:,:,:]
+            running_batch['currbb'][running_batch_idx:running_batch_idx+count_in,:] = y_batch[:count_in,:]
+            running_batch_idx = (running_batch_idx+N) % 50
+            train_batch = running_batch
+            running_batch = {'previmg': torch.Tensor(50, 3, 227, 227),
+                            'currimg': torch.Tensor(50, 3, 227, 227),
+                            'currbb': torch.Tensor(50, 4)}
+            running_batch['previmg'][:running_batch_idx,:,:,:] = x1_batch[count_in:,:,:,:]
+            running_batch['currimg'][:running_batch_idx,:,:,:] = x2_batch[count_in:,:,:,:]
+            running_batch['currbb'][:running_batch_idx,:] = y_batch[count_in:,:]
+        else:
+            train_batch = running_batch
+            running_batch_idx = 0
+            running_batch['previmg'][running_batch_idx:running_batch_idx+N,:,:,:] = x1_batch
+            running_batch['currimg'][running_batch_idx:running_batch_idx+N,:,:,:] = x2_batch
+            running_batch['currbb'][running_batch_idx:running_batch_idx+N,:] = y_batch
+            running_batch_idx = (running_batch_idx+N)
+
+    return running_batch, train_batch, done, running_batch_idx
+            
+
+def make_transformed_samples(dataset, args):
+
+    idx = np.random.randint(dataset.len, size=1)[0]
     orig_sample = dataset.get_orig_sample(idx) # unscaled original sample (single image and bb)
     true_sample = dataset.get_sample(idx) # cropped scaled sample (two frames and bb)
     true_tensor = transform(true_sample)
@@ -142,54 +202,65 @@ def train_model(model, datasets, criterion, optimizer):
     since = time.time()
     curr_loss = 0
     lr = args.learning_rate
+    running_batch_idx = 0
+    running_batch = {'previmg': torch.Tensor(50, 3, 227, 227),
+		     'currimg': torch.Tensor(50, 3, 227, 227),
+		     'currbb': torch.Tensor(50, 4)}
+
     if not os.path.isdir(args.save_directory):
         os.makedirs(args.save_directory)
-    for batch in range(args.num_batches):
+	
+    itr = 0
+    while itr < args.num_batches:
 
         model.train()
-        if batch > 0 and batch % args.lr_decay_step == 0:
-            optimizer, lr = exp_lr_scheduler(optimizer, batch, lr, args.gamma)
+        if itr > 0 and itr % args.lr_decay_step == 0:
+            optimizer, lr = exp_lr_scheduler(optimizer, itr, lr, args.gamma)
 
         # train on datasets
         # usually ALOV and ImageNet
         for i, dataset in enumerate(datasets):
-            sz = dataset.len
-
             # generate random index
-            rand_idx = np.random.randint(sz, size=1)[0]
+            # rand_idx = np.random.randint(sz, size=1)[0]
 
             # get training batch by generating new synthetic samples
-            x1, x2, y = make_training_samples(rand_idx, dataset, args)
+            # x1, x2, y = make_training_samples(rand_idx, dataset, args)
 
-            # wrap them in Variable
-            if use_gpu:
-                x1, x2, y = Variable(x1.cuda()), \
-                    Variable(x2.cuda()), Variable(y.cuda(), requires_grad=False)
-            else:
-                x1, x2, y = Variable(x1), Variable(x2), Variable(y, requires_grad=False)
+            running_batch, train_batch, done, running_batch_idx = get_training_batch(running_batch_idx, running_batch, dataset)
+            print 'running_batch_idx =', running_batch_idx
+            if done:
+                x1 = train_batch['previmg']
+                x2 = train_batch['currimg']
+                y = train_batch['currbb']
+                # wrap them in Variable
+                if use_gpu:
+                    x1, x2, y = Variable(x1.cuda()), \
+                        Variable(x2.cuda()), Variable(y.cuda(), requires_grad=False)
+                else:
+                    x1, x2, y = Variable(x1), Variable(x2), Variable(y, requires_grad=False)
 
-            # zero the parameter gradients
-            optimizer.zero_grad()
+                # zero the parameter gradients
+                optimizer.zero_grad()
 
-            # forward
-            output = model(x1, x2)
-            loss = criterion(output, y)
+                # forward
+                output = model(x1, x2)
+                loss = criterion(output, y)
 
-            # backward + optimize
-            loss.backward()
-            optimizer.step()
+                # backward + optimize
+                loss.backward()
+                optimizer.step()
 
-            # statistics
-            curr_loss = loss.data[0]
+                # statistics
+                curr_loss = loss.data[0]
+                itr = itr + 1
+                print('[training] step = %d/%d, loss = %f' % (itr, args.num_batches, curr_loss))
+                # sys.stdout.flush()
 
-            print('[training] step = %d/%d, dataset = %d, loss = %f' % (batch, args.num_batches, i, curr_loss))
-            sys.stdout.flush()
-
-#         val_loss = evaluate(model, dataloader, criterion, epoch)
-#         print('Validation Loss: {:.4f}'.format(val_loss))
-        if batch > 0 and batch % kSaveModel == 0:
-            path = args.save_directory + 'model_n_batch_' + str(batch) + '_loss_' + str(round(curr_loss, 3)) + '.pth'
-            torch.save(model.state_dict(), path)
+    #         val_loss = evaluate(model, dataloader, criterion, epoch)
+    #         print('Validation Loss: {:.4f}'.format(val_loss))
+                if itr > 0 and itr % kSaveModel == 0:
+                    path = args.save_directory + 'model_n_batch_' + str(itr) + '_loss_' + str(round(curr_loss, 3)) + '.pth'
+                    torch.save(model.state_dict(), path)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
