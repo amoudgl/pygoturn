@@ -135,23 +135,35 @@ class Normalize(object):
 
 def show_batch(sample_batched):
     """Show images with bounding boxes for a batch of samples."""
-
+    dpi = 80
     previmg_batch, currimg_batch, currbb_batch = \
             sample_batched['previmg'], sample_batched['currimg'], sample_batched['currbb']
     batch_size = len(previmg_batch)
     im_size = previmg_batch.size(2)
     grid1 = utils.make_grid(previmg_batch)
+    grid1 = grid1.numpy().transpose((1, 2, 0))
+    grid1 = grid1/grid1.max()
+    grid1 = grid1*255
+    grid1 = grid1.astype(np.uint8)
+
     grid2 = utils.make_grid(currimg_batch)
+    grid2 = grid2.numpy().transpose((1, 2, 0))
+    grid2 = grid2/grid2.max()
+    grid2 = grid2*255
+    grid2 = grid2.astype(np.uint8)
+
     f, axarr = plt.subplots(2)
-    axarr[0].imshow(grid1.numpy().transpose((1, 2, 0)))
+    axarr[0].imshow(grid1)
     axarr[0].set_title('Previous frame images')
-    axarr[1].imshow(grid2.numpy().transpose((1, 2, 0)))
+    axarr[1].imshow(grid2)
     axarr[1].set_title('Current frame images with bounding boxes')
     for i in range(batch_size):
         bb = currbb_batch[i]
         bb = bb.numpy()
         rect = patches.Rectangle((bb[0]+(i%8)*im_size, bb[1]+(i/8)*im_size),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
         axarr[1].add_patch(rect)
+    fig = plt.gcf()
+    fig.set_size_inches(18.5, 18.5)
     plt.show()
 
 # given currbb output from model and previous bounding box values in
