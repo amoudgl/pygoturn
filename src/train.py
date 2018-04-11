@@ -80,7 +80,7 @@ def main():
         elif 'bias' in name:
             trainable_bias.append(param)
 
-    self.optimizer = optim.SGD(
+    optimizer = optim.SGD(
         [
             {
                 'params': trainable_weights,
