@@ -39,6 +39,17 @@ class GoNet(nn.Module):
                 nn.Dropout(),
                 nn.Linear(4096, 4),
                 )
+        
+        self.weight_init()
+    
+    def weight_init(self):
+        for m in self.classifier.modules():
+            # fully connected layers are weight initialized with
+            # mean=0 and std=0.005 (in tracker.prototxt) and
+            # biases are set to 1
+            if isinstance(m, nn.Linear):
+                m.bias.data.fill_(1)
+                m.weight.data.normal_(0, 0.005)
 
     # feed forward through the neural net
     def forward(self, x, y):
