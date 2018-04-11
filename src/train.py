@@ -105,6 +105,10 @@ def main():
     # start training
     net = train_model(net, datasets, loss_fn, optimizer)
 
+    # save trained model
+    path = os.path.join(args.save_directory, 'final_model.pth')
+    torch.save(net.state_dict(), path)
+
 def exp_lr_scheduler(optimizer, step, init_lr, gamma, snapshot=50000):
     """Decay learning rate by a factor of 0.1 every lr_decay_epoch epochs."""
     # TODO: We need to update learning rate to account for lr_mult (i.e. biases * 20, weights * 10)
