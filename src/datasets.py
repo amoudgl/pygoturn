@@ -23,6 +23,7 @@ class ALOVDataset(Dataset):
         self.x = []
         self.transform = transform
         envs = os.listdir(target_dir)
+        print('Parsing ALOV dataset...')
         for env in envs:
             env_videos = os.listdir(root_dir + env)
             for vid in env_videos:
@@ -44,6 +45,8 @@ class ALOVDataset(Dataset):
         self.len = len(self.y)
         self.x = np.array(self.x)
         self.y = np.array(self.y)
+        print('ALOV dataset parsing done.')
+        print('Total number of annotations in ALOV Dataset =', self.len) # should return 
 
     # return size of dataset
     def __len__(self):
