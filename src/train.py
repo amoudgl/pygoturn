@@ -258,7 +258,7 @@ def train_model(model, datasets, criterion, optimizer):
                 itr = itr + 1
                 writer.add_scalar('train/batch_loss', curr_loss, itr)
                 print('[training] step = %d/%d, loss = %f' % (itr, args.num_batches, curr_loss))
-                # sys.stdout.flush()
+                sys.stdout.flush()
 
     #         val_loss = evaluate(model, dataloader, criterion, epoch)
     #         print('Validation Loss: {:.4f}'.format(val_loss))
