@@ -49,6 +49,7 @@ def main():
     torch.manual_seed(args.manual_seed)
     if use_gpu:
         torch.cuda.manual_seed(args.manual_seed)
+
     # load datasets
     alov = ALOVDataset('../data/alov300/imagedata++/',
                        '../data/alov300/alov300++_rectangleAnnotation_full/',
@@ -61,9 +62,8 @@ def main():
                                        args.min_scale,
                                        args.max_scale)
     # list of datasets to train on
-    #datasets = [imagenet]
-	# datasets = [imagenet]
     datasets = [alov, imagenet]
+
     # load model
     net = model.GoNet()
     loss_fn = torch.nn.L1Loss(size_average = False)
@@ -150,7 +150,7 @@ def get_training_batch(running_batch_idx, running_batch, dataset):
     elif running_batch_idx + N > batchSize:
         done = 1
         count_in = batchSize-running_batch_idx
- #       print "count_in =", count_in
+        # print "count_in =", count_in
         if count_in > 0:
             running_batch['previmg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x1_batch[:count_in,:,:,:]
             running_batch['currimg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x2_batch[:count_in,:,:,:]
@@ -248,14 +248,9 @@ def train_model(model, datasets, criterion, optimizer):
         # train on datasets
         # usually ALOV and ImageNet
         for i, dataset in enumerate(datasets):
-            # generate random index
-            # rand_idx = np.random.randint(sz, size=1)[0]
-
-            # get training batch by generating new synthetic samples
-            # x1, x2, y = make_training_samples(rand_idx, dataset, args)
 
             running_batch, train_batch, done, running_batch_idx = get_training_batch(running_batch_idx, running_batch, dataset)
-#            print 'running_batch_idx =', running_batch_idx
+            # print 'running_batch_idx =', running_batch_idx
             if done:
                 x1 = train_batch['previmg']
                 x2 = train_batch['currimg']
@@ -285,8 +280,6 @@ def train_model(model, datasets, criterion, optimizer):
                 print('[training] step = %d/%d, loss = %f' % (itr, args.num_batches, curr_loss))
                 sys.stdout.flush()
 
-    #         val_loss = evaluate(model, dataloader, criterion, epoch)
-    #         print('Validation Loss: {:.4f}'.format(val_loss))
                 if itr > 0 and itr % kSaveModel == 0:
                     path = args.save_directory + 'model_n_batch_' + str(itr) + '_loss_' + str(round(curr_loss, 3)) + '.pth'
                     torch.save(model.state_dict(), path)
