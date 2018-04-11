@@ -20,6 +20,7 @@ from tensorboardX import SummaryWriter
 # constants
 use_gpu = torch.cuda.is_available()
 kSaveModel = 20000 # save model after every 20000 steps
+batchSize = 50 # number of samples in a batch
 kGeneratedExamplesPerImage = 10; # generate 10 synthetic samples per image in a dataset
 transform = transforms.Compose([Normalize(), ToTensor()])
 writer = SummaryWriter()
@@ -141,24 +142,24 @@ def get_training_batch(running_batch_idx, running_batch, dataset):
     train_batch = None
 
     x1_batch, x2_batch, y_batch = make_transformed_samples(dataset, args)
-    if running_batch_idx + N <= 50:
+    if running_batch_idx + N <= batchSize:
         running_batch['previmg'][running_batch_idx:running_batch_idx+N,:,:,:] = x1_batch
         running_batch['currimg'][running_batch_idx:running_batch_idx+N,:,:,:] = x2_batch
         running_batch['currbb'][running_batch_idx:running_batch_idx+N,:] = y_batch
         running_batch_idx = (running_batch_idx+N)
-    elif running_batch_idx + N > 50:
+    elif running_batch_idx + N > batchSize:
         done = 1
-        count_in = 50-running_batch_idx
+        count_in = batchSize-running_batch_idx
  #       print "count_in =", count_in
         if count_in > 0:
             running_batch['previmg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x1_batch[:count_in,:,:,:]
             running_batch['currimg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x2_batch[:count_in,:,:,:]
             running_batch['currbb'][running_batch_idx:running_batch_idx+count_in,:] = y_batch[:count_in,:]
-            running_batch_idx = (running_batch_idx+N) % 50
+            running_batch_idx = (running_batch_idx+N) % batchSize
             train_batch = running_batch
-            running_batch = {'previmg': torch.Tensor(50, 3, 227, 227),
-                            'currimg': torch.Tensor(50, 3, 227, 227),
-                            'currbb': torch.Tensor(50, 4)}
+            running_batch = {'previmg': torch.Tensor(batchSize, 3, 227, 227),
+                            'currimg': torch.Tensor(batchSize, 3, 227, 227),
+                            'currbb': torch.Tensor(batchSize, 4)}
             running_batch['previmg'][:running_batch_idx,:,:,:] = x1_batch[count_in:,:,:,:]
             running_batch['currimg'][:running_batch_idx,:,:,:] = x2_batch[count_in:,:,:,:]
             running_batch['currbb'][:running_batch_idx,:] = y_batch[count_in:,:]
@@ -230,9 +231,9 @@ def train_model(model, datasets, criterion, optimizer):
     curr_loss = 0
     lr = args.learning_rate
     running_batch_idx = 0
-    running_batch = {'previmg': torch.Tensor(50, 3, 227, 227),
-		     'currimg': torch.Tensor(50, 3, 227, 227),
-		     'currbb': torch.Tensor(50, 4)}
+    running_batch = {'previmg': torch.Tensor(batchSize, 3, 227, 227),
+		     'currimg': torch.Tensor(batchSize, 3, 227, 227),
+		     'currbb': torch.Tensor(batchSize, 4)}
 
     if not os.path.isdir(args.save_directory):
         os.makedirs(args.save_directory)
