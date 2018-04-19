@@ -246,9 +246,6 @@ def train_model(model, datasets, criterion, optimizer):
     while itr < args.num_batches:
 
         model.train()
-        if itr > 0 and itr % args.lr_decay_step == 0:
-            optimizer, lr = exp_lr_scheduler(optimizer, itr, lr, args.gamma)
-
         # train on datasets
         # usually ALOV and ImageNet
         for i, dataset in enumerate(datasets):
@@ -256,6 +253,8 @@ def train_model(model, datasets, criterion, optimizer):
             running_batch, train_batch, done, running_batch_idx = get_training_batch(running_batch_idx, running_batch, dataset)
             # print 'running_batch_idx =', running_batch_idx
             if done:
+		if itr > 0 and itr % args.lr_decay_step == 0:
+		    optimizer, lr = exp_lr_scheduler(optimizer, itr, lr, args.gamma)		
                 x1 = train_batch['previmg']
                 x2 = train_batch['currimg']
                 y = train_batch['currbb']
