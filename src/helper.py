@@ -97,8 +97,8 @@ class ToTensor(object):
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
-        prev_img = prev_img.transpose((2, 0, 1))
-        curr_img = curr_img.transpose((2, 0, 1))
+#         prev_img = prev_img.transpose((2, 0, 1))
+#         curr_img = curr_img.transpose((2, 0, 1))
         if 'currbb' in sample:
             currbb = sample['currbb']
             return {'previmg': torch.from_numpy(prev_img).float(),
@@ -115,12 +115,20 @@ class Normalize(object):
 
     def __call__(self, sample):
         prev_img, curr_img = sample['previmg'], sample['currimg']
-        self.mean = [104, 117, 123]
-        prev_img = prev_img.astype(float)
-        curr_img = curr_img.astype(float)
-        prev_img -= np.array(self.mean).astype(float)
-        curr_img -= np.array(self.mean).astype(float)
+#         self.mean = [104, 117, 123]
+#         prev_img = prev_img.astype(float)
+#         curr_img = curr_img.astype(float)
+#         prev_img -= np.array(self.mean).astype(float)
+#         curr_img -= np.array(self.mean).astype(float)
 
+        self.transform = transforms.Compose([transforms.ToTensor(),
+                                            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                                                 std=[0.229, 0.224, 0.225])
+                                        ])
+        prev_img = self.transform(prev_img).numpy()
+        curr_img = self.transform(curr_img).numpy()
+        prev_img = prev_img.astype(float)
+        curr_img = curr_img.astype(float)                                  
         if 'currbb' in sample:
             currbb = sample['currbb']
             currbb = currbb*(10./227);

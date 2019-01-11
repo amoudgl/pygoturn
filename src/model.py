@@ -24,10 +24,11 @@ class GoNet(nn.Module):
     def __init__(self):
         super(GoNet, self).__init__()
         caffenet = models.alexnet(pretrained=True)
-        for param in caffenet.parameters():
+        self.convnet = nn.Sequential(*list(caffenet.children())[:-1])
+        for param in self.convnet.parameters():
             param.requires_grad = False
-        self.features = caffenet.features
         self.classifier = nn.Sequential(
+                nn.Dropout(),
                 nn.Linear(256*6*6*2, 4096),
                 nn.ReLU(inplace=True),
                 nn.Dropout(),
@@ -36,12 +37,10 @@ class GoNet(nn.Module):
                 nn.Dropout(),
                 nn.Linear(4096,4096),
                 nn.ReLU(inplace=True),
-                nn.Dropout(),
                 nn.Linear(4096, 4),
                 )
-        
         self.weight_init()
-    
+
     def weight_init(self):
         for m in self.classifier.modules():
             # fully connected layers are weight initialized with
@@ -53,9 +52,9 @@ class GoNet(nn.Module):
 
     # feed forward through the neural net
     def forward(self, x, y):
-        x1 = self.features(x)
+        x1 = self.convnet(x)
         x1 = x1.view(x.size(0), 256*6*6)
-        x2 = self.features(y)
+        x2 = self.convnet(y)
         x2 = x2.view(x.size(0), 256*6*6)
         x = torch.cat((x1, x2), 1)
         x = self.classifier(x)

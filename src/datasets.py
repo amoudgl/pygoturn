@@ -37,7 +37,7 @@ class ALOVDataset(Dataset):
                 f.close()
                 frame_idxs = [int(ann.split(' ')[0])-1 for ann in annotations]
                 frames = np.array(frames)
-                for i in xrange(len(frame_idxs)-1):
+                for i in range(len(frame_idxs)-1):
                     idx = frame_idxs[i]
                     next_idx = frame_idxs[i+1]
                     self.x.append([frames[idx], frames[next_idx]])

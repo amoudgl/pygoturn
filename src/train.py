@@ -109,18 +109,6 @@ def main():
     path = os.path.join(args.save_directory, 'final_model.pth')
     torch.save(net.state_dict(), path)
 
-def exp_lr_scheduler(optimizer, step, init_lr, gamma, snapshot=50000):
-    """Decay learning rate by a factor of 0.1 every lr_decay_epoch epochs."""
-    # TODO: We need to update learning rate to account for lr_mult (i.e. biases * 20, weights * 10)
-    lr = init_lr * gamma
-    if step % snapshot == 0:
-        print('LR is set to {}'.format(lr))
-
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-    return optimizer, lr
-
 # batch formation regimen pseudocode
 # curr_idx = 0
 # running_batch = np.zeros((50,4))
@@ -243,18 +231,19 @@ def train_model(model, datasets, criterion, optimizer):
         os.makedirs(args.save_directory)
 	
     itr = 0
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.gamma)
+    st = time.time()
     while itr < args.num_batches:
 
         model.train()
         # train on datasets
         # usually ALOV and ImageNet
-        for i, dataset in enumerate(datasets):
-
+        for i, dataset in enumerate(datasets):   
             running_batch, train_batch, done, running_batch_idx = get_training_batch(running_batch_idx, running_batch, dataset)
             # print 'running_batch_idx =', running_batch_idx
             if done:
-		if itr > 0 and itr % args.lr_decay_step == 0:
-		    optimizer, lr = exp_lr_scheduler(optimizer, itr, lr, args.gamma)		
+                scheduler.step()
+                
                 x1 = train_batch['previmg']
                 x2 = train_batch['currimg']
                 y = train_batch['currbb']
@@ -269,20 +258,22 @@ def train_model(model, datasets, criterion, optimizer):
                 optimizer.zero_grad()
 
                 # forward
+                
                 output = model(x1, x2)
                 loss = criterion(output, y)
-
                 # backward + optimize
                 loss.backward()
                 optimizer.step()
-
+                
                 # statistics
-                curr_loss = loss.data[0]
+                curr_loss = loss.item()
+                end = time.time()
                 itr = itr + 1
                 writer.add_scalar('train/batch_loss', curr_loss, itr)
-                print('[training] step = %d/%d, loss = %f' % (itr, args.num_batches, curr_loss))
+                print('[training] step = %d/%d, loss = %f, time = %f' % (itr, args.num_batches, curr_loss, end-st))
                 sys.stdout.flush()
-
+                    
+                st = time.time()
                 if itr > 0 and itr % kSaveModel == 0:
                     path = args.save_directory + 'model_n_batch_' + str(itr) + '_loss_' + str(round(curr_loss, 3)) + '.pth'
                     torch.save(model.state_dict(), path)
@@ -299,7 +290,7 @@ def evaluate(model, dataloader, criterion, epoch):
     dataset = dataloader.dataset
     running_loss = 0
     # test on a sample sequence from training set itself
-    for i in xrange(64):
+    for i in range(64):
         sample = dataset[i]
         sample['currimg'] = sample['currimg'][None,:,:,:]
         sample['previmg'] = sample['previmg'][None,:,:,:]
