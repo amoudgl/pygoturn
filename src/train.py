@@ -15,7 +15,6 @@ import torch.optim as optim
 import numpy as np
 from helper import *
 from multiprocessing.dummy import Pool as ThreadPool
-from tensorboardX import SummaryWriter
 
 # constants
 use_gpu = torch.cuda.is_available()
@@ -23,7 +22,10 @@ kSaveModel = 20000 # save model after every 20000 steps
 batchSize = 50 # number of samples in a batch
 kGeneratedExamplesPerImage = 10; # generate 10 synthetic samples per image in a dataset
 transform = transforms.Compose([Normalize(), ToTensor()])
-writer = SummaryWriter()
+enable_tensorboard = False
+if enable_tensorboard:
+    from tensorboardX import SummaryWriter
+    writer = SummaryWriter()
 
 args = None
 parser = argparse.ArgumentParser(description='GOTURN Training')
@@ -39,16 +41,21 @@ parser.add_argument('-lscale', '--lambda-scale-frac', default=15, type=float, he
 parser.add_argument('-minsc', '--min-scale', default=-0.4, type=float, help='min-scale for random cropping')
 parser.add_argument('-maxsc', '--max-scale', default=0.4, type=float, help='max-scale for random cropping')
 parser.add_argument('-seed', '--manual-seed', default=800, type=int, help='set manual seed value')
+parser.add_argument('--resume', default='', type=str, metavar='PATH',help='path to latest checkpoint (default: none)')
+parser.add_argument('-b', '--batch-size', default=50, type=int, help='number of samples in batch (default: 50)')
+parser.add_argument('--save-freq', default=20000, type=int, help='save checkpoint frequency (default: 20000)')
 
 def main():
 
-    global args
+    global args, batchSize, kSaveModel, use_gpu
     args = parser.parse_args()
     print(args)
+    batchSize = args.batch_size
+    kSaveModel = args.save_freq
     np.random.seed(args.manual_seed)
     torch.manual_seed(args.manual_seed)
     if use_gpu:
-        torch.cuda.manual_seed(args.manual_seed)
+        torch.cuda.manual_seed_all(args.manual_seed)
 
     # load datasets
     alov = ALOVDataset('../data/alov300/imagedata++/',
@@ -218,29 +225,58 @@ def make_transformed_samples(dataset, args):
 
 def train_model(model, datasets, criterion, optimizer):
 
-    global writer
+    global args, writer
     since = time.time()
     curr_loss = 0
     lr = args.learning_rate
+    flag = False
+    start_itr = 0
     running_batch_idx = 0
     running_batch = {'previmg': torch.Tensor(batchSize, 3, 227, 227),
-		     'currimg': torch.Tensor(batchSize, 3, 227, 227),
-		     'currbb': torch.Tensor(batchSize, 4)}
+                     'currimg': torch.Tensor(batchSize, 3, 227, 227),
+                     'currbb': torch.Tensor(batchSize, 4)}
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.gamma)
+
+    # resume from a checkpoint
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print("=> loading checkpoint '{}'".format(args.resume))
+            checkpoint = torch.load(args.resume)
+            start_itr = checkpoint['itr']
+            model.load_state_dict(checkpoint['state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            scheduler.load_state_dict(checkpoint['scheduler'])
+            running_batch_idx = checkpoint['running_batch_idx']
+            running_batch = checkpoint['running_batch']
+            lr = checkpoint['lr']
+            np.random.set_state(checkpoint['np_rand_state'])
+            torch.set_rng_state(checkpoint['torch_rand_state'])
+            print("=> loaded checkpoint '{}' (iteration {})"
+                  .format(args.resume, checkpoint['itr']))
+        else:
+            print("=> no checkpoint found at '{}'".format(args.resume))
 
     if not os.path.isdir(args.save_directory):
         os.makedirs(args.save_directory)
-	
-    itr = 0
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.gamma)
+
+    itr = start_itr
     st = time.time()
     while itr < args.num_batches:
 
         model.train()
+        if args.resume and os.path.isfile(args.resume) and itr == start_itr and (not flag):
+            checkpoint = torch.load(args.resume)
+            i = checkpoint['dataset_indx']
+            flag = True
+        else:
+            i = 0
+
         # train on datasets
         # usually ALOV and ImageNet
-        for i, dataset in enumerate(datasets):   
+        while i < len(datasets):
+            dataset = datasets[i]
+            i = i+1
             running_batch, train_batch, done, running_batch_idx = get_training_batch(running_batch_idx, running_batch, dataset)
-            # print 'running_batch_idx =', running_batch_idx
             if done:
                 scheduler.step()
                 
@@ -258,25 +294,40 @@ def train_model(model, datasets, criterion, optimizer):
                 optimizer.zero_grad()
 
                 # forward
-                
                 output = model(x1, x2)
                 loss = criterion(output, y)
+
                 # backward + optimize
                 loss.backward()
                 optimizer.step()
-                
+
                 # statistics
                 curr_loss = loss.item()
                 end = time.time()
                 itr = itr + 1
-                writer.add_scalar('train/batch_loss', curr_loss, itr)
                 print('[training] step = %d/%d, loss = %f, time = %f' % (itr, args.num_batches, curr_loss, end-st))
                 sys.stdout.flush()
-                    
                 st = time.time()
+
+                if enable_tensorboard:
+                    writer.add_scalar('train/batch_loss', curr_loss, itr)
+
                 if itr > 0 and itr % kSaveModel == 0:
-                    path = args.save_directory + 'model_n_batch_' + str(itr) + '_loss_' + str(round(curr_loss, 3)) + '.pth'
-                    torch.save(model.state_dict(), path)
+                    path = os.path.join(args.save_directory,
+                                        'model_itr_' + str(itr) + '_loss_' + str(round(curr_loss, 3)) + '.pth.tar')
+                    save_checkpoint({
+                    'itr': itr,
+                    'np_rand_state': np.random.get_state(),
+                    'torch_rand_state': torch.get_rng_state(),
+                    'l1_loss': curr_loss,
+                    'state_dict': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'scheduler': scheduler.state_dict(),
+                    'running_batch_idx': running_batch_idx,
+                    'running_batch': running_batch,
+                    'lr': lr,
+                    'dataset_indx': i
+                    }, path)
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -285,27 +336,8 @@ def train_model(model, datasets, criterion, optimizer):
     writer.close()
     return model
 
-def evaluate(model, dataloader, criterion, epoch):
-    model.eval()
-    dataset = dataloader.dataset
-    running_loss = 0
-    # test on a sample sequence from training set itself
-    for i in range(64):
-        sample = dataset[i]
-        sample['currimg'] = sample['currimg'][None,:,:,:]
-        sample['previmg'] = sample['previmg'][None,:,:,:]
-        x1, x2 = sample['previmg'], sample['currimg']
-        y = sample['currbb']
-        x1 = Variable(x1.cuda())
-        x2 = Variable(x2.cuda())
-        y = Variable(y.cuda(), requires_grad=False)
-        output = model(x1, x2)
-        loss = criterion(output, y)
-        running_loss += loss.data[0]
-        print('[validation] epoch = %d, i = %d, loss = %f' % (epoch, i, loss.data[0]))
-
-    seq_loss = running_loss/64
-    return seq_loss
+def save_checkpoint(state, filename='checkpoint.pth.tar'):
+    torch.save(state, filename)
 
 if __name__ == "__main__":
     main()
