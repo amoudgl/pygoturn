@@ -332,8 +332,9 @@ def train_model(model, datasets, criterion, optimizer):
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
-    writer.export_scalars_to_json("./all_scalars.json")
-    writer.close()
+    if enable_tensorboard:
+        writer.export_scalars_to_json("./all_scalars.json")
+        writer.close()
     return model
 
 def save_checkpoint(state, filename='checkpoint.pth.tar'):
