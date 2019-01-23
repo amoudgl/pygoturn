@@ -10,11 +10,12 @@ from torch.autograd import Variable
 from torchvision import transforms
 from helper import ToTensor, Normalize, show_batch
 import torch.optim as optim
+import re
 import numpy as np
 from helper import *
 from get_bbox import *
 
-
+args = None
 use_gpu = torch.cuda.is_available()
 parser = argparse.ArgumentParser(description='GOTURN Testing')
 parser.add_argument('-weights', '--model-weights', default='../saved_checkpoints/exp3/model_n_epoch_47_loss_2.696.pth', type=str, help='path to trained model')
@@ -25,31 +26,44 @@ class TesterOTB:
     """Tester for OTB formatted sequences"""
     def __init__(self, root_dir, model_path, save_dir=None):
         self.root_dir = root_dir
+        self.save_dir = save_dir
+        print(self.save_dir)
         self.transform = transforms.Compose([Normalize(), ToTensor()])
         self.model_path = model_path
         self.model = model.GoNet()
         if use_gpu:
             self.model = self.model.cuda()
-        self.model.load_state_dict(torch.load(model_path))
+        checkpoint = torch.load(model_path)
+        self.model.load_state_dict(checkpoint['state_dict'])
         frames = os.listdir(root_dir + '/img')
         frames = [root_dir + "/img/" + frame for frame in frames]
         self.len = len(frames)-1
         frames = np.array(frames)
         frames.sort()
         self.x = []
-        for i in xrange(self.len):
+        self.gt = []
+        f = open(root_dir + '/groundtruth_rect.txt')
+        lines = f.readlines()
+        lines[0] = re.sub('\t',',', lines[0])
+        lines[0] = re.sub(' +',',',lines[0])
+        init_bbox = lines[0].strip().split(',')
+        init_bbox = [float(x) for x in init_bbox]
+        init_bbox = [init_bbox[0], init_bbox[1], init_bbox[0]+init_bbox[2], init_bbox[1]+init_bbox[3]]
+        init_bbox = np.array(init_bbox) 
+        self.prev_rect = init_bbox
+        for i in range(self.len):
             self.x.append([frames[i], frames[i+1]])
+            lines[i+1] = re.sub('\t',',', lines[i+1])
+            lines[i+1] = re.sub(' +',',',lines[i+1])
+            bb = lines[i+1].strip().split(',')
+            bb = [float(x) for x in bb]
+            bb = [bb[0], bb[1], bb[0]+bb[2], bb[1]+bb[3]]
+            self.gt.append(bb)
         self.x = np.array(self.x)
 #         uncomment to select rectangle manually
 #         init_bbox = bbox_coordinates(self.x[0][0])
-        f = open(root_dir + '/groundtruth_rect.txt')
-        lines = f.readlines()
-        init_bbox = lines[0].strip().split('\t')
-        init_bbox = [float(x) for x in init_bbox]
-        init_bbox = [init_bbox[0], init_bbox[1], init_bbox[0]+init_bbox[2], init_bbox[1]+init_bbox[3]]
-        init_bbox = np.array(init_bbox)
-        print init_bbox
-        self.prev_rect = init_bbox
+        print(init_bbox)
+        
 
     # returns transformed pytorch tensor which is passed directly to the network
     def __getitem__(self, idx):
@@ -64,8 +78,8 @@ class TesterOTB:
         prevbb = self.prev_rect
         # Crop previous image with height and width twice the prev bounding box height and width
         # Scale the cropped image to (227,227,3)
-        crop_prev = CropPrev(128)
-        scale = Rescale((227,227))
+        crop_prev = CropPrev()
+        scale = Rescale((224,224))
         transform_prev = transforms.Compose([crop_prev, scale])
         prev_img = transform_prev({'image':prev, 'bb':prevbb})['image']
         # Crop current image with height and width twice the prev bounding box height and width
@@ -87,15 +101,51 @@ class TesterOTB:
         y = self.model(x1, x2)
         bb = y.data.cpu().numpy().transpose((1,0))
         bb = bb[:,0]
-        bb = list(bb*(227./10)) # unscaling
+        bb = list(bb*(224./10)) # unscaling
         bb = inverse_transform(bb, self.prev_rect)
-        print bb
+#         print(bb)
         return bb
 
+
+    def axis_aligned_iou(self, boxA, boxB):
+        # convert x1,y1,w,h to x1,y1,x2,y2
+#         boxA = [boxA[0], boxA[1], boxA[0]+boxA[2], boxA[1]+boxA[3]]
+#         boxB = [boxB[0], boxB[1], boxB[0]+boxB[2], boxB[1]+boxB[3]]
+
+            # make sure that x1,y1,x2,y2 of a box are valid 
+        assert(boxA[0] <= boxA[2])
+        assert(boxA[1] <= boxA[3])
+        assert(boxB[0] <= boxB[2])
+        assert(boxB[1] <= boxB[3])
+
+        # determine the (x, y)-coordinates of the intersection rectangle
+        xA = max(boxA[0], boxB[0])
+        yA = max(boxA[1], boxB[1])
+        xB = min(boxA[2], boxB[2])
+        yB = min(boxA[3], boxB[3])
+
+        # compute the area of intersection rectangle
+        interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+
+        # compute the area of both the prediction and ground-truth
+        # rectangles
+        boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+        boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+
+        # compute the intersection over union by taking the intersection
+        # area and dividing it by the sum of prediction + ground-truth
+        # areas - the interesection area
+        iou = interArea / float(boxAArea + boxBArea - interArea)
+
+        # return the intersection over union value
+        return iou    
+    
+    
     # loop through all the frames of test sequence and track target object
     def test(self):
         fig,ax = plt.subplots(1)
-        for i in xrange(self.len):
+        self.model.eval()
+        for i in range(self.len):
             sample = self[i]
             bb = self.get_rect(sample)
             im = io.imread(self.x[i][1])
@@ -105,11 +155,12 @@ class TesterOTB:
             rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
             ax.add_patch(rect)
             self.prev_rect = bb
-        plt.show()
+            print('frame: %d, IoU = %f' % (i+2, self.axis_aligned_iou(self.gt[i], bb)))
+            plt.savefig(os.path.join(self.save_dir,str(i+2)+'.jpg'))
 
 def main():
     args = parser.parse_args()
-    print args
+    print(args)
     tester = TesterOTB(args.data_directory, args.model_weights, args.save_directory)
     tester.test()
 

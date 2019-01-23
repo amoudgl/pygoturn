@@ -18,6 +18,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 # constants
 use_gpu = torch.cuda.is_available()
+input_size = 224
 kSaveModel = 20000 # save model after every 20000 steps
 batchSize = 50 # number of samples in a batch
 kGeneratedExamplesPerImage = 10; # generate 10 synthetic samples per image in a dataset
@@ -30,7 +31,7 @@ if enable_tensorboard:
 args = None
 parser = argparse.ArgumentParser(description='GOTURN Training')
 parser.add_argument('-n', '--num-batches', default=500000, type=int, help='number of total batches to run')
-parser.add_argument('-lr', '--learning-rate', default=1e-6, type=float, help='initial learning rate')
+parser.add_argument('-lr', '--learning-rate', default=1e-5, type=float, help='initial learning rate')
 parser.add_argument('--gamma', default=0.1, type=float, help='learning rate decay factor')
 parser.add_argument('--momentum', default=0.9, type=float, help='optimizer momentum')
 parser.add_argument('--weight_decay', default=0.0005, type=float, help='optimizer momentum')
@@ -60,10 +61,11 @@ def main():
     # load datasets
     alov = ALOVDataset('../data/alov300/imagedata++/',
                        '../data/alov300/alov300++_rectangleAnnotation_full/',
-                       transform)
+                       transform, input_size)
     imagenet = ILSVRC2014_DET_Dataset('../data/imagenet_img/',
                                        '../data/imagenet_bbox/',
                                        transform,
+                                       input_size,
                                        args.lambda_shift_frac,
                                        args.lambda_scale_frac,
                                        args.min_scale,
@@ -79,30 +81,10 @@ def main():
         loss_fn = loss_fn.cuda()
     
     # initialize optimizer
-    trainable_weights = []
-    trainable_bias = []
-
-    for name, param in net.classifier.named_parameters():
-        if 'weight' in name:
-            trainable_weights.append(param)
-        elif 'bias' in name:
-            trainable_bias.append(param)
-
-    optimizer = optim.SGD(
-        [
-            {
-                'params': trainable_weights,
-                'lr': args.learning_rate * 10
-            },
-            {
-                'params': trainable_bias,
-                'lr': args.learning_rate * 20
-            }
-        ],
+    optimizer = optim.SGD(net.classifier.parameters(),
         lr=args.learning_rate,
         momentum=args.momentum,
-        weight_decay=args.weight_decay
-    )
+        weight_decay=args.weight_decay)
 
     if os.path.exists(args.save_directory):
         print('Directory %s already exists' % (args.save_directory))
@@ -156,8 +138,8 @@ def get_training_batch(running_batch_idx, running_batch, dataset):
             running_batch['currbb'][running_batch_idx:running_batch_idx+count_in,:] = y_batch[:count_in,:]
             running_batch_idx = (running_batch_idx+N) % batchSize
             train_batch = running_batch
-            running_batch = {'previmg': torch.Tensor(batchSize, 3, 227, 227),
-                            'currimg': torch.Tensor(batchSize, 3, 227, 227),
+            running_batch = {'previmg': torch.Tensor(batchSize, 3, input_size, input_size),
+                            'currimg': torch.Tensor(batchSize, 3, input_size, input_size),
                             'currbb': torch.Tensor(batchSize, 4)}
             running_batch['previmg'][:running_batch_idx,:,:,:] = x1_batch[count_in:,:,:,:]
             running_batch['currimg'][:running_batch_idx,:,:,:] = x2_batch[count_in:,:,:,:]
@@ -182,8 +164,8 @@ def make_transformed_samples(dataset, args):
 
     origimg = orig_sample['image']
     origbb = orig_sample['bb']
-    x1_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3, 227, 227)
-    x2_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3, 227, 227)
+    x1_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3, input_size, input_size)
+    x2_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3, input_size, input_size)
     y_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 4)
 
     # initialize batch with the true sample
@@ -202,7 +184,7 @@ def make_transformed_samples(dataset, args):
         # Crop previous image with height and width twice the prev bounding box height and width
         # Scale the cropped image to (227,227,3)
         crop_curr = transforms.Compose([CropCurr()])
-        scale = Rescale((227,227))
+        scale = Rescale((input_size, input_size))
         transform_prev = transforms.Compose([CropPrev(), scale])
         prev_img = transform_prev({'image':origimg, 'bb':origbb})['image']
         # Crop current image with height and width twice the prev bounding box height and width
@@ -232,8 +214,8 @@ def train_model(model, datasets, criterion, optimizer):
     flag = False
     start_itr = 0
     running_batch_idx = 0
-    running_batch = {'previmg': torch.Tensor(batchSize, 3, 227, 227),
-                     'currimg': torch.Tensor(batchSize, 3, 227, 227),
+    running_batch = {'previmg': torch.Tensor(batchSize, 3, input_size, input_size),
+                     'currimg': torch.Tensor(batchSize, 3, input_size, input_size),
                      'currbb': torch.Tensor(batchSize, 4)}
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.gamma)
 

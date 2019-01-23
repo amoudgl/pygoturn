@@ -115,6 +115,7 @@ class Normalize(object):
 
     def __call__(self, sample):
         prev_img, curr_img = sample['previmg'], sample['currimg']
+        sz = prev_img.shape[0]
 #         self.mean = [104, 117, 123]
 #         prev_img = prev_img.astype(float)
 #         curr_img = curr_img.astype(float)
@@ -131,7 +132,7 @@ class Normalize(object):
         curr_img = curr_img.astype(float)                                  
         if 'currbb' in sample:
             currbb = sample['currbb']
-            currbb = currbb*(10./227);
+            currbb = currbb*(10./sz);
             return {'previmg': prev_img,
                     'currimg': curr_img,
                     'currbb': currbb
@@ -182,8 +183,8 @@ def inverse_transform(currbb, orig_prevbb):
     patch_width = (orig_prevbb[2]-orig_prevbb[0])*2
     patch_height = (orig_prevbb[3]-orig_prevbb[1])*2
     # input image size to network
-    net_w = 227
-    net_h = 227
+    net_w = 224
+    net_h = 224
     unscaledbb = [currbb[0]*patch_width/net_w,
                   currbb[1]*patch_height/net_h,
                   currbb[2]*patch_width/net_w,

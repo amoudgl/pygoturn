@@ -16,11 +16,12 @@ warnings.filterwarnings("ignore")
 class ALOVDataset(Dataset):
     """ALOV Tracking Dataset"""
 
-    def __init__(self, root_dir, target_dir, transform=None):
+    def __init__(self, root_dir, target_dir, transform=None, input_size=224):
         self.root_dir = root_dir
         self.target_dir = target_dir
         self.y = []
         self.x = []
+        self.sz = input_size
         self.transform = transform
         envs = os.listdir(target_dir)
         print('Parsing ALOV dataset...')
@@ -69,7 +70,7 @@ class ALOVDataset(Dataset):
         # Crop previous image with height and width twice the prev bounding box height and width
         # Scale the cropped image to (227,227,3)
         crop_curr = transforms.Compose([CropCurr()])
-        scale = Rescale((227,227))
+        scale = Rescale((self.sz, self.sz))
         transform_prev = transforms.Compose([CropPrev(), scale])
         prev_img = transform_prev({'image':prev, 'bb':prevbb})['image']
         # Crop current image with height and width twice the prev bounding box height and width
@@ -134,6 +135,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
     def __init__(self, image_dir,
                  bbox_dir,
                  transform = None,
+                 input_size = 224,
                  lambda_shift_frac = 5.,
                  lambda_scale_frac = 15.,
                  min_scale = -0.4,
@@ -141,6 +143,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
         self.image_dir = image_dir
         self.bbox_dir = bbox_dir
         self.transform = transform
+        self.sz = input_size
         self.lambda_scale_frac = lambda_scale_frac
         self.lambda_shift_frac = lambda_shift_frac
         self.min_scale = min_scale
@@ -188,7 +191,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
         # Crop previous image with height and width twice the prev bounding box height and width
         # Scale the cropped image to (227,227,3)
         crop_curr = transforms.Compose([CropCurr()])
-        scale = Rescale((227,227))
+        scale = Rescale((self.sz,self.sz))
         transform_prev = transforms.Compose([CropPrev(), scale])
         prev_img = transform_prev({'image':curr, 'bb':currbb})['image']
         # Crop current image with height and width twice the prev bounding box height and width

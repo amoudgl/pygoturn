@@ -28,7 +28,6 @@ class GoNet(nn.Module):
         for param in self.convnet.parameters():
             param.requires_grad = False
         self.classifier = nn.Sequential(
-                nn.Dropout(),
                 nn.Linear(256*6*6*2, 4096),
                 nn.ReLU(inplace=True),
                 nn.Dropout(),
@@ -37,6 +36,7 @@ class GoNet(nn.Module):
                 nn.Dropout(),
                 nn.Linear(4096,4096),
                 nn.ReLU(inplace=True),
+                nn.Dropout(),
                 nn.Linear(4096, 4),
                 )
         self.weight_init()
