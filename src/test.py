@@ -33,7 +33,9 @@ class TesterOTB:
         self.model = model.GoNet()
         if use_gpu:
             self.model = self.model.cuda()
-        checkpoint = torch.load(model_path)
+            checkpoint = torch.load(model_path)
+        else:
+            checkpoint = torch.load(model_path, map_location=lambda storage, location: storage)
         self.model.load_state_dict(checkpoint['state_dict'])
         frames = os.listdir(root_dir + '/img')
         frames = [root_dir + "/img/" + frame for frame in frames]
@@ -152,10 +154,11 @@ class TesterOTB:
             # show rectangle
             ax.clear()
             ax.imshow(im)
-            rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
+            rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=2,edgecolor='r',facecolor='none')
             ax.add_patch(rect)
             self.prev_rect = bb
             print('frame: %d, IoU = %f' % (i+2, self.axis_aligned_iou(self.gt[i], bb)))
+            ax.set_axis_off()
             plt.savefig(os.path.join(self.save_dir,str(i+2)+'.jpg'))
 
 def main():
