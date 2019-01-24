@@ -27,11 +27,19 @@ Pillow
 To install all the packages, do `pip3 install -r requirements.txt`.
 
 ## Inference 
-You can test pretrained PyTorch GOTURN on a new sequence by following the steps below: 
 
-- [Download]() PyTorch pretrained model.
-- Run `src/test.py` and provide path to sequence as argument.
- 
+Navigate to `pygoturn/src` and run the following command:
+```
+python3 test.py -weights ../checkpoints/pretrained_pygoturn.pth -data ../data/OTB/Man -save ../data/Output/
+```
+
+**Arguments:**
+
+`-weights / --model-weights`: Path to a PyTorch pretrained model checkpoint. [Download pretrained model]().
+`-data / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).
+`-save / --save-directory`: Directory to save sequence images with predicted bounding boxes.
+
+
 ## Training 
 
 - Download ImageNet and ALOV datasets in `data/` directory. 
