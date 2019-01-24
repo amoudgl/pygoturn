@@ -1,6 +1,6 @@
 # PyTorch GOTURN tracker
 
-This is the PyTorch implementation of GOTURN visual tracker. GOTURN is one of the key trackers which proposed an alternative deep learning approach to object tracking by learning a comparator function.
+This is the PyTorch implementation of GOTURN visual tracker (Held. et. al, ECCV 2016). GOTURN is one of the key trackers which proposed an alternative deep learning approach to object tracking by learning a comparator function.
 
 ![](images/goturn.png) 
 
