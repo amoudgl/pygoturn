@@ -35,9 +35,9 @@ python3 test.py -weights ../checkpoints/pretrained_pygoturn.pth -data ../data/OT
 
 **Arguments:**
 
-`-weights / --model-weights`: Path to a PyTorch pretrained model checkpoint. [Download pretrained model]().
-`-data / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).
-`-save / --save-directory`: Directory to save sequence images with predicted bounding boxes.
+`-weights / --model-weights`: Path to a PyTorch pretrained model checkpoint. [Download pretrained model]().   
+`-data / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).   
+`-save / --save-directory`: Directory to save sequence images with predicted bounding boxes.   
 
 
 ## Training 
