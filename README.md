@@ -2,7 +2,7 @@
 
 This is the PyTorch implementation of GOTURN visual tracker. GOTURN is one of the key trackers which proposed an alternative deep learning approach to object tracking by learning a comparator function.
 
-[]!(images/goturn.png) 
+![](images/goturn.png) 
 
 ### Why PyTorch implementation? 
 Although author's original [C++ Caffe implementation](https://github.com/davheld/GOTURN) and [this](https://github.com/nrupatunga/PY-GOTURN) Python Caffe implementation are well-documented, I feel a PyTorch implementation would be more readable and much easier to adapt for further research. Hence, this is my humble attempt to reproduce GOTURN from scratch in PyTorch which includes data loading, training and inference. I hope this is a useful contribution to the vision community.
