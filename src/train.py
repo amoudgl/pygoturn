@@ -59,11 +59,11 @@ def main():
         torch.cuda.manual_seed_all(args.manual_seed)
 
     # load datasets
-    alov = ALOVDataset('../data/alov300/imagedata++/',
-                       '../data/alov300/alov300++_rectangleAnnotation_full/',
+    alov = ALOVDataset('../data/imagedata++/',
+                       '../data/alov300++_rectangleAnnotation_full/',
                        transform, input_size)
-    imagenet = ILSVRC2014_DET_Dataset('../data/imagenet_img/',
-                                       '../data/imagenet_bbox/',
+    imagenet = ILSVRC2014_DET_Dataset('../data/ILSVRC2014_DET_train/',
+                                       '../data/ILSVRC2014_DET_bbox_train/',
                                        transform,
                                        input_size,
                                        args.lambda_shift_frac,
