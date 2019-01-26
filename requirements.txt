@@ -1,7 +1,7 @@
-scikit_image>=0.14.0
-numpy>=1.14.5
-torch>=0.4.0
-torchvision>=0.2.1
-matplotlib>=2.2.2
-Pillow>=5.2.0
-tensorboardX>=1.2
+torch==1.0.0
+numpy==1.14.5
+matplotlib==3.0.2
+scikit-image==0.14.1
+torchvision==0.2.1
+Pillow==5.4.1
+tensorboardX==1.6

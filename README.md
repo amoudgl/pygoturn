@@ -11,18 +11,18 @@ Although author's original [C++ Caffe implementation](https://github.com/davheld
 
 ![](images/pygoturn_man.gif)
 
-## Dependencies
+## Environment
 
 PyTorch 1.0 and Python3 recommended. 
 
-Following python packages are required to run the code.
 ```
-scikit_image
-numpy
-torch
-torchvision
-matplotlib
-Pillow
+torch==1.0.0
+numpy==1.14.5
+matplotlib==3.0.2
+scikit-image==0.14.1
+torchvision==0.2.1
+Pillow==5.4.1
+tensorboardX==1.6
 ```
 To install all the packages, do `pip3 install -r requirements.txt`.
 
