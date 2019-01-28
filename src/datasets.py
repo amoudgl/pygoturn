@@ -1,17 +1,19 @@
 from __future__ import print_function, division
 import os
-import torch
+import xml.etree.ElementTree as ET
+import warnings
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from skimage import io, transform
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
-from helper import *
-import xml.etree.ElementTree as ET
+from skimage import io
+from torch.utils.data import Dataset
+from torchvision import transforms
 
-import warnings
+from helper import *
+
 warnings.filterwarnings("ignore")
+
 
 class ALOVDataset(Dataset):
     """ALOV Tracking Dataset"""
@@ -47,7 +49,7 @@ class ALOVDataset(Dataset):
         self.x = np.array(self.x)
         self.y = np.array(self.y)
         print('ALOV dataset parsing done.')
-        print('Total number of annotations in ALOV Dataset =', self.len) # should return 
+        print('Total number of annotations in ALOV Dataset =', self.len)
 
     # return size of dataset
     def __len__(self):
@@ -67,23 +69,25 @@ class ALOVDataset(Dataset):
         curr = io.imread(self.x[idx][1])
         prevbb = self.get_bb(self.y[idx][0])
         currbb = self.get_bb(self.y[idx][1])
-        # Crop previous image with height and width twice the prev bounding box height and width
+        # Crop previous image with height and width twice the prev bounding box
+        # height and width
         # Scale the cropped image to (227,227,3)
         crop_curr = transforms.Compose([CropCurr()])
         scale = Rescale((self.sz, self.sz))
         transform_prev = transforms.Compose([CropPrev(), scale])
-        prev_img = transform_prev({'image':prev, 'bb':prevbb})['image']
-        # Crop current image with height and width twice the prev bounding box height and width
+        prev_img = transform_prev({'image': prev, 'bb': prevbb})['image']
+        # Crop current image with height and width twice the prev bounding box
+        # height and width
         # Scale the cropped image to (227,227,3)
-        curr_obj = crop_curr({'image':curr, 'prevbb':prevbb, 'currbb':currbb})
+        curr_obj = crop_curr({'image': curr, 'prevbb': prevbb,
+                             'currbb': currbb})
         curr_obj = scale(curr_obj)
         curr_img = curr_obj['image']
         currbb = curr_obj['bb']
         currbb = np.array(currbb)
         sample = {'previmg': prev_img,
-                'currimg': curr_img,
-                'currbb' : currbb
-                }
+                  'currimg': curr_img,
+                  'currbb': currbb}
         return sample
 
     # returns original image and bounding box
@@ -93,26 +97,29 @@ class ALOVDataset(Dataset):
         sample = {'image': curr, 'bb': currbb}
         return sample
 
-    # given annotation, returns bounding box in the format: (left, upper, width, height)
+    # returns bounding box in the format: (left, upper, width, height)
     def get_bb(self, ann):
         ann = ann.strip().split(' ')
         left = min(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
         top = min(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
         right = max(float(ann[1]), float(ann[3]), float(ann[5]), float(ann[7]))
-        bottom = max(float(ann[2]), float(ann[4]), float(ann[6]), float(ann[8]))
+        bottom = max(float(ann[2]), float(ann[4]),
+                     float(ann[6]), float(ann[8]))
         return [left, top, right, bottom]
 
-    # helper function to display image at a particular index with ground truth bounding box
+    # helper function to display image at a particular index with grount truth
+    # bounding box
     # arguments: (idx, i)
-    #            idx - index
-    #             i - 0 for previous frame and 1 for current frame
+    #     idx: index
+    #     i: 0 for previous frame and 1 for current frame
     def show(self, idx, i):
         sample = self.get_orig_sample(idx, i)
         im = sample['image']
         bb = sample['bb']
-        fig,ax = plt.subplots(1)
+        fig, ax = plt.subplots(1)
         ax.imshow(im)
-        rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
+        rect = patches.Rectangle((bb[0], bb[1]), bb[2]-bb[0], bb[3]-bb[1],
+                                 linewidth=1, edgecolor='r', facecolor='none')
         ax.add_patch(rect)
         plt.show()
 
@@ -124,7 +131,8 @@ class ALOVDataset(Dataset):
         ax1.imshow(x['previmg'])
         ax2.imshow(x['currimg'])
         bb = x['currbb']
-        rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
+        rect = patches.Rectangle((bb[0], bb[1]), bb[2]-bb[0], bb[3]-bb[1],
+                                 linewidth=1, edgecolor='r', facecolor='none')
         ax2.add_patch(rect)
         plt.show()
 
@@ -134,12 +142,12 @@ class ILSVRC2014_DET_Dataset(Dataset):
 
     def __init__(self, image_dir,
                  bbox_dir,
-                 transform = None,
-                 input_size = 224,
-                 lambda_shift_frac = 5.,
-                 lambda_scale_frac = 15.,
-                 min_scale = -0.4,
-                 max_scale = 0.4):
+                 transform=None,
+                 input_size=224,
+                 lambda_shift_frac=5.,
+                 lambda_scale_frac=15.,
+                 min_scale=-0.4,
+                 max_scale=0.4):
         self.image_dir = image_dir
         self.bbox_dir = bbox_dir
         self.transform = transform
@@ -161,7 +169,8 @@ class ILSVRC2014_DET_Dataset(Dataset):
     def __len__(self):
         return self.len
 
-    # parses xml file and returns list of all the bounding boxes in the given file
+    # parses xml file
+    # returns list of all the bounding boxes in the given file
     def get_bb(self, bbox_filepath):
         tree = ET.parse(bbox_filepath)
         root = tree.getroot()
@@ -188,23 +197,20 @@ class ILSVRC2014_DET_Dataset(Dataset):
                              self.lambda_shift_frac,
                              self.min_scale,
                              self.max_scale)
-        # Crop previous image with height and width twice the prev bounding box height and width
-        # Scale the cropped image to (227,227,3)
         crop_curr = transforms.Compose([CropCurr()])
-        scale = Rescale((self.sz,self.sz))
+        scale = Rescale((self.sz, self.sz))
         transform_prev = transforms.Compose([CropPrev(), scale])
-        prev_img = transform_prev({'image':curr, 'bb':currbb})['image']
-        # Crop current image with height and width twice the prev bounding box height and width
-        # Scale the cropped image to (227,227,3)
-        curr_obj = crop_curr({'image':curr, 'prevbb':prevbb, 'currbb':currbb})
+        prev_img = transform_prev({'image': curr, 'bb': currbb})['image']
+        curr_obj = crop_curr({'image': curr,
+                              'prevbb': prevbb,
+                              'currbb': currbb})
         curr_obj = scale(curr_obj)
         curr_img = curr_obj['image']
         currbb = curr_obj['bb']
         currbb = np.array(currbb)
         sample = {'previmg': prev_img,
-                'currimg': curr_img,
-                'currbb' : currbb
-                }
+                  'currimg': curr_img,
+                  'currbb': currbb}
         return sample
 
     # returns original image and bounding box
@@ -214,15 +220,18 @@ class ILSVRC2014_DET_Dataset(Dataset):
         sample = {'image': curr, 'bb': currbb}
         return sample
 
-    # given list of object annotations, filter those objects which cover atleast
+    # given list of object annotations, filter objects which cover atleast
     # 66% of the image in either dimension
     def filter_ann(self, sz, ann):
         ans = []
         for an in ann:
             an_width = an[2]-an[0]
             an_height = an[3]-an[1]
-            area_constraint = an_width > 0 and an_height > 0 and an_width*an_height > 0
-            if (an_width <= (0.66)*sz[0] and an_height <= (0.66)*sz[1] and area_constraint):
+            area_constraint = an_width > 0 and \
+                an_height > 0 and an_width*an_height > 0
+            if an_width <= (0.66)*sz[0] and \
+               an_height <= (0.66)*sz[1] and \
+               area_constraint:
                 ans.append(an)
         return ans
 
@@ -231,8 +240,8 @@ class ILSVRC2014_DET_Dataset(Dataset):
     def parse_data(self, image_dir, bbox_dir):
         print('Parsing ImageNet dataset...')
         folders = os.listdir(image_dir)
-        x = [] # contains path to image files
-        y = [] # contains bounding boxes
+        x = []  # contains path to image files
+        y = []  # contains bounding boxes
         for folder in folders:
             images = os.listdir(image_dir + folder)
             bboxes = os.listdir(bbox_dir + folder)
@@ -247,13 +256,14 @@ class ILSVRC2014_DET_Dataset(Dataset):
                 ann = self.filter_ann(sz, ann)
                 if ann:
                     annotations.extend(ann)
-                    l = len(ann)*[image]
-                    x.extend(l)
+                    length = len(ann)*[image]
+                    x.extend(length)
             if annotations:
                 y.extend(annotations)
         self.len = len(y)
         print('ImageNet dataset parsing done.')
-        print('Total number of annotations in ImageNet Dataset =', self.len) # should return 239283
+        # should return 239283
+        print('Total number of annotations in ImageNet Dataset =', self.len)
         return x, y
 
     # displays object at specific index with bounding box
@@ -261,9 +271,10 @@ class ILSVRC2014_DET_Dataset(Dataset):
         sample = self.get_orig_sample(idx)
         im = sample['image']
         bb = sample['bb']
-        fig,ax = plt.subplots(1)
+        fig, ax = plt.subplots(1)
         ax.imshow(im)
-        rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
+        rect = patches.Rectangle((bb[0], bb[1]), bb[2]-bb[0], bb[3]-bb[1],
+                                 linewidth=1, edgecolor='r', facecolor='none')
         ax.add_patch(rect)
         plt.show()
 
@@ -275,6 +286,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
         ax1.imshow(x['previmg'])
         ax2.imshow(x['currimg'])
         bb = x['currbb']
-        rect = patches.Rectangle((bb[0], bb[1]),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
+        rect = patches.Rectangle((bb[0], bb[1]), bb[2]-bb[0], bb[3]-bb[1],
+                                 linewidth=1, edgecolor='r', facecolor='none')
         ax2.add_patch(rect)
         plt.show()
