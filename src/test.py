@@ -9,29 +9,30 @@ from torch.autograd import Variable
 from torchvision import transforms
 from skimage import io
 
-import model
+from model import GoNet
 from helper import ToTensor, Normalize, CropPrev, Rescale, inverse_transform
 
 args = None
-use_gpu = torch.cuda.is_available()
 parser = argparse.ArgumentParser(description='GOTURN Testing')
-parser.add_argument('-weights', '--model-weights',
+parser.add_argument('-w', '--model-weights',
                     type=str, help='path to pretrained model')
-parser.add_argument('-data', '--data-directory',
+parser.add_argument('-d', '--data-directory',
                     default='../data/OTB/Girl', type=str,
                     help='path to video frames')
 
 
 class GOTURN:
     """Tester for OTB formatted sequences"""
-    def __init__(self, root_dir, model_path):
+    def __init__(self, root_dir, model_path, use_gpu=False):
         self.root_dir = root_dir
+        self.use_gpu = use_gpu
         self.transform = transforms.Compose([Normalize(), ToTensor()])
         crop_prev = CropPrev()
         scale = Rescale((224, 224))
         self.transform_prev = transforms.Compose([crop_prev, scale])
         self.model_path = model_path
-        self.model = model.GoNet()
+        self.model = GoNet()
+        self.gt = []
         if use_gpu:
             self.model = self.model.cuda()
             checkpoint = torch.load(model_path)
@@ -66,6 +67,7 @@ class GOTURN:
             bb = lines[i+1].strip().split(',')
             bb = [float(x) for x in bb]
             bb = [bb[0], bb[1], bb[0]+bb[2], bb[1]+bb[3]]
+            self.gt.append(bb)
         self.x = np.array(self.x)
         # uncomment to select rectangle manually
         # init_bbox = bbox_coordinates(self.x[0][0])
@@ -91,7 +93,7 @@ class GOTURN:
     # in the original image dimensions
     def get_rect(self, sample):
         x1, x2 = sample['previmg'], sample['currimg']
-        if use_gpu:
+        if self.use_gpu:
             x1, x2 = Variable(x1.cuda()), Variable(x2.cuda())
         else:
             x1, x2 = Variable(x1), Variable(x2)
@@ -120,6 +122,6 @@ class GOTURN:
 if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
-    tester = GOTURN(args.data_directory,
-                    args.model_weights)
+    use_gpu = torch.cuda.is_available()
+    tester = GOTURN(args.data_directory, args.model_weights, use_gpu)
     tester.test()
