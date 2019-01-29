@@ -89,7 +89,7 @@ class GOTURN:
 
     # given previous frame and next frame, regress the bounding box coordinates
     # in the original image dimensions
-    def _get_rect(self, sample):
+    def get_rect(self, sample):
         x1, x2 = sample['previmg'], sample['currimg']
         if use_gpu:
             x1, x2 = Variable(x1.cuda()), Variable(x2.cuda())
@@ -110,7 +110,7 @@ class GOTURN:
         st = time.time()
         for i in range(self.len):
             sample = self[i]
-            bb = self._get_rect(sample)
+            bb = self.get_rect(sample)
             self.prev_rect = bb
             print("frame: {}".format(i+1), bb)
         end = time.time()
