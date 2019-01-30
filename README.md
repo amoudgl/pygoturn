@@ -26,9 +26,28 @@ tensorboardX==1.6
 ```
 To install all the packages, do `pip3 install -r requirements.txt`.
 
-## Inference
+## Demo
 
-Navigate to `pygoturn/src` and run the following command:
+Navigate to `pygoturn/src` and do:
+
+```
+python3 demo.py
+```
+
+Images with bounding box predictions will saved in `pygoturn/result` directory.
+
+Optional arguments:
+
+```
+`-w / --model-weights`: Path to a PyTorch pretrained model checkpoint
+`-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).
+`-s / --save-directory`: Directory to save sequence images with predicted bounding boxes.
+```
+
+
+## Fast inference
+
+In order to benchmark results for a tracking sequence or do fast inference, run the following command:
 ```
 python3 test.py -weights ../checkpoints/pretrained_pygoturn.pth -data ../data/OTB/Man -save ../data/Output/
 ```
@@ -36,9 +55,7 @@ python3 test.py -weights ../checkpoints/pretrained_pygoturn.pth -data ../data/OT
 **Arguments:**
 
 `-w / --model-weights`: Path to a PyTorch pretrained model checkpoint. [Download pretrained model]() (will be available soon).   
-`-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).   
-`-s / --save-directory`: Directory to save sequence images with predicted bounding boxes.   
-
+`-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).      
 
 ## Training
 
@@ -87,7 +104,12 @@ If you find this code useful in your research, please cite:
 @inproceedings{held2016learning,
   title={Learning to Track at 100 FPS with Deep Regression Networks},
   author={Held, David and Thrun, Sebastian and Savarese, Silvio},
-  booktitle = {European Conference Computer Vision (ECCV)},
-  year      = {2016}
+  booktitle={European Conference Computer Vision (ECCV)},
+  year={2016}
 }
 ```
+
+## Acknowledgements
+
+- I'd like to thank the original authors for releasing a clean C++ implementation [[davheld/GOTURN](https://github.com/davheld/GOTURN)] and it was heavily referenced to tune hyperparameters appropriately.   
+- This python caffe implementation [[nrupatunga/PY-GOTURN](https://github.com/nrupatunga/PY-GOTURN)] was pretty useful to understand GOTURN batch formation procedure. I borrowed some of its parts and adapted it to Pytorch.
