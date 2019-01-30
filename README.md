@@ -38,9 +38,9 @@ Images with bounding box predictions will saved in `pygoturn/result` directory.
 
 Optional arguments:
 
-`-w / --model-weights`: Path to a PyTorch pretrained model checkpoint
-`-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).
-`-s / --save-directory`: Directory to save sequence images with predicted bounding boxes.
+`-w / --model-weights`: Path to a PyTorch pretrained model checkpoint.   
+`-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).   
+`-s / --save-directory`: Directory to save sequence images with predicted bounding boxes.   
 
 
 ## Fast inference
@@ -53,7 +53,7 @@ python3 test.py -weights ../checkpoints/pretrained_pygoturn.pth -data ../data/OT
 **Arguments:**
 
 `-w / --model-weights`: Path to a PyTorch pretrained model checkpoint. [Download pretrained model]() (will be available soon).   
-`-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).      
+`-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).       
 
 ## Training
 
