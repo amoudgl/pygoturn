@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(description='GOTURN Testing')
 parser.add_argument('-w', '--model-weights',
                     type=str, help='path to pretrained model')
 parser.add_argument('-d', '--data-directory',
-                    default='../data/OTB/Girl', type=str,
+                    default='../data/OTB/Man', type=str,
                     help='path to video frames')
 
 
@@ -39,7 +39,7 @@ class GOTURN:
         else:
             checkpoint = torch.load(model_path, map_location=lambda storage,
                                     location: storage)
-        self.model.load_state_dict(checkpoint['state_dict'])
+        self.model.load_state_dict(checkpoint)
         frames = os.listdir(root_dir + '/img')
         frames = [root_dir + "/img/" + frame for frame in frames]
         self.len = len(frames)-1
