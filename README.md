@@ -143,3 +143,7 @@ If you find this code useful in your research, please cite:
 
 - I'd like to thank the original authors for releasing a clean C++ implementation [[davheld/GOTURN](https://github.com/davheld/GOTURN)] and it was heavily referenced to tune hyperparameters appropriately.   
 - This python caffe implementation [[nrupatunga/PY-GOTURN](https://github.com/nrupatunga/PY-GOTURN)] was pretty useful to understand GOTURN batch formation procedure. I borrowed some of its parts and adapted it to Pytorch.
+
+## License 
+
+MIT
