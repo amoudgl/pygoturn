@@ -68,7 +68,7 @@ To evaluate PyTorchGOTURN on OTB50 and OTB100, follow the steps below:
 | OTB50     | 0.351 | 0.50 |
 | OTB100      | 0.357 |  0.49 |
 
-As per [foolwood/benchmark_results](https://github.com/foolwood/benchmark_results), the original Caffe GOTURN yields AUC: 0.427 and Precision: 0.572. I feel that difference in the performance is due to difference in the way ImageNet models are trained in Caffe and PyTorch like input normalization, layer specific learning rates etc. In this repository, I followed exact GOTURN hyperparameters which may not be the best for PyTorch. I feel with some hyperparameter tuning, GOTURN performance can be reproduced with an end-to-end PyTorch model.
+As per [foolwood/benchmark_results](https://github.com/foolwood/benchmark_results), the original Caffe GOTURN yields AUC: 0.427 and Precision: 0.572 on OTB100. I feel that difference in the performance is due to difference in the way ImageNet models are trained in Caffe and PyTorch like input normalization, layer specific learning rates etc. In this repository, I followed exact GOTURN hyperparameters which may not be the best for PyTorch. I feel with some hyperparameter tuning, GOTURN performance can be reproduced with an end-to-end PyTorch model.
 
 Feel free to contribute to this project, if you have any improvements!
 
