@@ -71,14 +71,14 @@ class ALOVDataset(Dataset):
         currbb = self.get_bb(self.y[idx][1])
         # Crop previous image with height and width twice the prev bounding box
         # height and width
-        # Scale the cropped image to (227,227,3)
+        # Scale the cropped image to (224,224,3)
         crop_curr = transforms.Compose([CropCurr()])
         scale = Rescale((self.sz, self.sz))
         transform_prev = transforms.Compose([CropPrev(), scale])
         prev_img = transform_prev({'image': prev, 'bb': prevbb})['image']
         # Crop current image with height and width twice the prev bounding box
         # height and width
-        # Scale the cropped image to (227,227,3)
+        # Scale the cropped image to (224,224,3)
         curr_obj = crop_curr({'image': curr, 'prevbb': prevbb,
                              'currbb': currbb})
         curr_obj = scale(curr_obj)

@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description='GOTURN Testing')
 parser.add_argument('-w', '--model-weights',
                     type=str, help='path to pretrained model')
 parser.add_argument('-d', '--data-directory',
-                    default='../data/OTB/Girl', type=str,
+                    default='../data/OTB/Man', type=str,
                     help='path to video frames')
 parser.add_argument('-s', '--save-directory',
                     default='../result',

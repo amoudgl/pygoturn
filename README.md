@@ -26,21 +26,51 @@ tensorboardX==1.6
 ```
 To install all the packages, do `pip3 install -r requirements.txt`.
 
+
+
 ## Demo
+
+### [Download pretrained model](https://drive.google.com/file/d/1i7svVWIcOaP_iCe_gA3prVSoCz8JeCWO/view?usp=sharing)
 
 Navigate to `pygoturn/src` and do:
 
 ```
-python3 demo.py
+python3 demo.py -w /path/to/pretrained/model
 ```
 
-Images with bounding box predictions will saved in `pygoturn/result` directory.
+Images with bounding box predictions will be saved in `pygoturn/result` directory.
 
-Optional arguments:
+Arguments:
 
 `-w / --model-weights`: Path to a PyTorch pretrained model checkpoint.   
 `-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).   
 `-s / --save-directory`: Directory to save sequence images with predicted bounding boxes.   
+
+## Benchmark
+
+To evaluate PyTorchGOTURN on OTB50 and OTB100, follow the steps below:
+
+- Install [got10k toolkit](https://github.com/got-10k/toolkit).
+     ```
+     pip install --upgrade got10k
+     ```
+- [Download pretrained model](https://drive.google.com/file/d/1i7svVWIcOaP_iCe_gA3prVSoCz8JeCWO/view?usp=sharing).
+- Edit OTB dataset path and model path appropriately in `src/evaluate.py`. The script will automatically download OTB dataset at the path provided.
+- Run evaluation script:
+    ```
+    python3 evaluate.py
+    ```
+
+## Performance
+
+| Dataset        | AUC | Precision  |
+| -------|:--------:| -----:|
+| OTB50     | 0.351 | 0.50 |
+| OTB100      | 0.357 |  0.49 |
+
+As per [foolwood/benchmark_results](https://github.com/foolwood/benchmark_results), the original Caffe GOTURN yields AUC: 0.427 and Precision: 0.572. I feel that difference in the performance is due to difference in the way ImageNet models are trained in Caffe and PyTorch like input normalization, layer specific learning rates etc. In this repository, I followed exact GOTURN hyperparameters which may not be the best for PyTorch. I feel with some hyperparameter tuning, GOTURN performance can be reproduced with an end-to-end PyTorch model.
+
+Feel free to contribute to this project, if you have any improvements!
 
 
 ## Fast inference
@@ -52,12 +82,14 @@ python3 test.py -weights ../checkpoints/pretrained_pygoturn.pth -data ../data/OT
 
 **Arguments:**
 
-`-w / --model-weights`: Path to a PyTorch pretrained model checkpoint. [Download pretrained model]() (will be available soon).   
+`-w / --model-weights`: Path to a PyTorch pretrained model checkpoint.  
 `-d / --data-directory`: Path to a tracking sequence which follows [OTB format](http://cvlab.hanyang.ac.kr/tracker_benchmark/datasets.html).       
 
 ## Training
 
 Please follow the steps below for data preparation and training a pygoturn model from scratch.
+
+![](images/pygoturn_loss.jpg)
 
 ### Prepare training data
 Navidate to `pygoturn/data`.
