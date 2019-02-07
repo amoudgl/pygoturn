@@ -102,7 +102,7 @@ Either use `download.sh` script to automatically download all datasets or manual
 
 Once you have all the above files in `pygoturn/data`, use `pygoturn/data/setup.sh` script to setup datasets in the way pygoturn training script `/src/train.py` expects OR follow the manual steps below:
 
-- Untar `ILSVRC2014_DET_train.tar`. You'll have a directory `ILSVRC2014_DET_train` with containing multiple tar files.
+- Untar `ILSVRC2014_DET_train.tar`. You'll have a directory `ILSVRC2014_DET_train` containing multiple tar files.
 - First, delete all the tar files in `ILSVRC2014_DET_train` directory which start with name `ILSVRC2013`. This is an important step to reproduce the *exact* same number of ImageNet training samples (239283) as described in GOTURN paper.
 - Untar all the remaining tar files in `ILSVRC2014_DET_train`. When done, *delete* all `*.tar` files. Since there are several `tar` files to untar, you can use `data/untar.sh` script. Just copy `untar.sh` to `ILSVRC2014_DET_train` directory and do: `./untar.sh`. Delete `untar.sh` from `data/ILSVRC2014_DET_train` when you are done.
 - Untar `ILSVRC2014_DET_bbox_train.tgz`.
