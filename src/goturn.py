@@ -5,7 +5,7 @@ from torchvision import transforms
 from got10k.trackers import Tracker
 
 from model import GoNet
-from helper import ToTensor, Normalize, CropPrev, Rescale, inverse_transform
+from helper import NormalizeToTensor, Rescale, BoundingBox, crop_sample
 
 
 class TrackerGOTURN(Tracker):
@@ -20,9 +20,6 @@ class TrackerGOTURN(Tracker):
         net: GOTURN pytorch model
         prev_box: previous bounding box
         prev_img: previous tracking image
-        transform_img: crops image based on box and scales it to (224,224,3)
-        transform_tensor: normalizes images in input sample
-            (prev_img, curr_img, box) and converts it to tensor
     """
     def __init__(self, net_path=None, **kargs):
         super(TrackerGOTURN, self).__init__(
@@ -44,13 +41,13 @@ class TrackerGOTURN(Tracker):
         # setup transforms
         self.prev_img = None  # previous image in numpy format
         self.prev_box = None  # follows format: [xmin, ymin, xmax, ymax]
-        self.transform_img = transforms.Compose([CropPrev(),
-                                                Rescale((224, 224))])
-        self.transform_tensor = transforms.Compose([Normalize(), ToTensor()])
+        self.scale = Rescale((224, 224))
+        self.transform_tensor = transforms.Compose([NormalizeToTensor()])
+        self.opts = None
 
     # assumes that initial box has the format: [xmin, ymin, width, height]
     def init(self, image, box):
-        image = np.asarray(image)
+        image = np.array(image)
 
         # goturn helper functions expect box in [xmin, ymin, xmax, ymax] format
         box[2] = box[0] + box[2]
@@ -61,12 +58,14 @@ class TrackerGOTURN(Tracker):
     # given current image, returns target box
     def update(self, image):
         # crop current and previous image at previous box location
-        image = np.asarray(image)
-        prev = self.transform_img(
-            {'image': self.prev_img, 'bb': self.prev_box})['image']
-        curr = self.transform_img(
-            {'image': image, 'bb': self.prev_box})['image']
-        sample = {'previmg': prev, 'currimg': curr}
+        image = np.array(image)
+        prev_sample, opts_prev = crop_sample({'image': self.prev_img, 'bb': self.prev_box})
+        curr_sample, opts_curr = crop_sample({'image': image, 'bb': self.prev_box})
+        self.opts = opts_curr
+        self.curr_img = image
+        curr_img = self.scale(curr_sample, opts_curr)['image']
+        prev_img = self.scale(prev_sample, opts_prev)['image']
+        sample = {'previmg': prev_img, 'currimg': curr_img}
         sample = self.transform_tensor(sample)
 
         # do forward pass to get box
@@ -86,15 +85,14 @@ class TrackerGOTURN(Tracker):
     # in the original image dimensions
     def _get_rect(self, sample):
         x1, x2 = sample['previmg'], sample['currimg']
-        if self.cuda:
-            x1, x2 = Variable(x1.cuda()), Variable(x2.cuda())
-        else:
-            x1, x2 = Variable(x1), Variable(x2)
-        x1 = x1[None, :, :, :]
-        x2 = x2[None, :, :, :]
+        x1 = x1.unsqueeze(0).to(self.device)
+        x2 = x2.unsqueeze(0).to(self.device)
         y = self.net(x1, x2)
         bb = y.data.cpu().numpy().transpose((1, 0))
         bb = bb[:, 0]
-        bb = list(bb*(224./10))  # unscaling
-        bb = inverse_transform(bb, self.prev_box)
-        return bb
+        bbox = BoundingBox(bb[0], bb[1], bb[2], bb[3])
+
+        # inplace conversion
+        bbox.unscale(self.opts['search_region'])
+        bbox.uncenter(self.curr_img, self.opts['search_location'], self.opts['edge_spacing_x'], self.opts['edge_spacing_y'])
+        return bbox.get_bb_list()

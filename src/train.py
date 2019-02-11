@@ -12,15 +12,17 @@ import numpy as np
 import model
 
 from datasets import ALOVDataset, ILSVRC2014_DET_Dataset
-from helper import *
+from helper import Rescale, shift_crop_training_sample, crop_sample, NormalizeToTensor
 
 # constants
-use_gpu = torch.cuda.is_available()
+cuda = torch.cuda.is_available()
+device = torch.device('cuda:0' if cuda else 'cpu')
 input_size = 224
 kSaveModel = 20000  # save model after every 20000 steps
 batchSize = 50  # number of samples in a batch
 kGeneratedExamplesPerImage = 10  # generate 10 synthetic samples per image
-transform = transforms.Compose([Normalize(), ToTensor()])
+transform = NormalizeToTensor()
+bb_params = {}
 enable_tensorboard = False
 if enable_tensorboard:
     from tensorboardX import SummaryWriter
@@ -40,10 +42,10 @@ parser.add_argument('--weight_decay', default=0.0005, type=float,
                     help='weight decay in optimizer')
 parser.add_argument('--lr-decay-step', default=100000, type=int,
                     help='number of steps after which learning rate decays')
-parser.add_argument('-data', '--data-directory', type=str,
+parser.add_argument('-d', '--data-directory', type=str,
                     default='../data/',
                     help='path to data directory')
-parser.add_argument('-save', '--save-directory', type=str,
+parser.add_argument('-s', '--save-directory', type=str,
                     default='../saved_checkpoints/exp3/',
                     help='path to save directory')
 parser.add_argument('-lshift', '--lambda-shift-frac', default=5, type=float,
@@ -66,15 +68,21 @@ parser.add_argument('--save-freq', default=20000, type=int,
 
 def main():
 
-    global args, batchSize, kSaveModel, use_gpu
+    global args, batchSize, kSaveModel, bb_params
     args = parser.parse_args()
     print(args)
     batchSize = args.batch_size
     kSaveModel = args.save_freq
     np.random.seed(args.manual_seed)
     torch.manual_seed(args.manual_seed)
-    if use_gpu:
+    if cuda:
         torch.cuda.manual_seed_all(args.manual_seed)
+
+    # load bounding box motion model params
+    bb_params['lambda_shift_frac'] = args.lambda_shift_frac
+    bb_params['lambda_scale_frac'] = args.lambda_scale_frac
+    bb_params['min_scale'] = args.min_scale
+    bb_params['max_scale'] = args.max_scale
 
     # load datasets
     alov = ALOVDataset(os.path.join(args.data_directory,
@@ -86,21 +94,15 @@ def main():
                                       'ILSVRC2014_DET_train/'),
                                       os.path.join(args.data_directory,
                                       'ILSVRC2014_DET_bbox_train/'),
+                                      bb_params,
                                       transform,
-                                      input_size,
-                                      args.lambda_shift_frac,
-                                      args.lambda_scale_frac,
-                                      args.min_scale,
-                                      args.max_scale)
+                                      input_size)
     # list of datasets to train on
     datasets = [alov, imagenet]
 
     # load model
-    net = model.GoNet()
-    loss_fn = torch.nn.L1Loss(size_average=False)
-    if use_gpu:
-        net = net.cuda()
-        loss_fn = loss_fn.cuda()
+    net = model.GoNet().to(device)
+    loss_fn = torch.nn.L1Loss(size_average=False).to(device)
 
     # initialize optimizer
     optimizer = optim.SGD(net.classifier.parameters(),
@@ -165,11 +167,8 @@ def make_transformed_samples(dataset, args):
     # unscaled original sample (single image and bb)
     orig_sample = dataset.get_orig_sample(idx)
     # cropped scaled sample (two frames and bb)
-    true_sample = dataset.get_sample(idx)
+    true_sample, _ = dataset.get_sample(idx)
     true_tensor = transform(true_sample)
-
-    origimg = orig_sample['image']
-    origbb = orig_sample['bb']
     x1_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3, input_size, input_size)
     x2_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3, input_size, input_size)
     y_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 4)
@@ -179,35 +178,19 @@ def make_transformed_samples(dataset, args):
     x2_batch[0, :, :, :] = true_tensor['currimg']
     y_batch[0, :] = true_tensor['currbb']
 
+    scale = Rescale((input_size, input_size))
     for i in range(kGeneratedExamplesPerImage):
-        sample = {'image': origimg, 'bb': origbb}
-        prevbb = random_crop(sample,
-                             args.lambda_scale_frac,
-                             args.lambda_shift_frac,
-                             args.min_scale,
-                             args.max_scale)
-
-        # Crop previous image with height and width twice the prev bounding box
-        # height and width
-        # Scale the cropped image to (224,224,3)
-        crop_curr = transforms.Compose([CropCurr()])
-        scale = Rescale((input_size, input_size))
-        transform_prev = transforms.Compose([CropPrev(), scale])
-        prev_img = transform_prev({'image': origimg, 'bb': origbb})['image']
-        # Crop current image with height and width twice the prev bounding box
-        # height and width
-        # Scale the cropped image to (224,224,3)
-        curr_obj = crop_curr({'image': origimg,
-                              'prevbb': prevbb,
-                              'currbb': origbb})
-        curr_obj = scale(curr_obj)
-        curr_img = curr_obj['image']
-        currbb = curr_obj['bb']
-        currbb = np.array(currbb)
-        sample = {'previmg': prev_img,
-                  'currimg': curr_img,
-                  'currbb': currbb}
-        sample = transform(sample)
+        sample = orig_sample
+        # unscaled current image crop with box
+        curr_sample, opts_curr = shift_crop_training_sample(sample, bb_params)
+        # unscaled previous image crop with box
+        prev_sample, opts_prev = crop_sample(sample)
+        scaled_curr_obj = scale(curr_sample, opts_curr)
+        scaled_prev_obj = scale(prev_sample, opts_prev)
+        training_sample = {'previmg': scaled_prev_obj['image'],
+                           'currimg': scaled_curr_obj['image'],
+                           'currbb': scaled_curr_obj['bb']}
+        sample = transform(training_sample)
         x1_batch[i+1, :, :, :] = sample['previmg']
         x2_batch[i+1, :, :, :] = sample['currimg']
         y_batch[i+1, :] = sample['currbb']
@@ -272,15 +255,18 @@ def train_model(model, datasets, criterion, optimizer):
             if done:
                 scheduler.step()
 
-                x1 = train_batch['previmg']
-                x2 = train_batch['currimg']
-                y = train_batch['currbb']
-                # wrap them in Variable
-                if use_gpu:
-                    x1, x2, y = Variable(x1.cuda()), \
-                        Variable(x2.cuda()), Variable(y.cuda(), requires_grad=False)
-                else:
-                    x1, x2, y = Variable(x1), Variable(x2), Variable(y, requires_grad=False)
+                # x1 = train_batch['previmg']
+                # x2 = train_batch['currimg']
+                # y = train_batch['currbb']
+                # if cuda:
+                #     x1, x2, y = Variable(x1.cuda()), \
+                #         Variable(x2.cuda()), Variable(y.cuda(), requires_grad=False)
+                # else:
+                #     x1, x2, y = Variable(x1), Variable(x2), Variable(y, requires_grad=False)
+                # load sample
+                x1 = train_batch['previmg'].to(device)
+                x2 = train_batch['currimg'].to(device)
+                y = train_batch['currbb'].requires_grad_(False).to(device)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()

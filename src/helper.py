@@ -1,93 +1,46 @@
 import numpy as np
 import math
-from skimage import io, transform, img_as_ubyte
+import random
 import torch
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
-from PIL import Image
+import cv2
+from torchvision import transforms
+from boundingbox import BoundingBox
 # Ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
+
 
 class Rescale(object):
     """Rescale image and bounding box.
     Args:
         output_size (tuple or int): Desired output size. If int, square crop
             is made.
-
     """
     def __init__(self, output_size):
         assert isinstance(output_size, (int, tuple))
         self.output_size = output_size
 
-    def __call__(self, sample):
+    def __call__(self, sample, opts):
         image, bb = sample['image'], sample['bb']
         h, w = image.shape[:2]
         if isinstance(self.output_size, int):
-           if h > w:
-               new_h, new_w = self.output_size*h/w, self.output_size
-           else:
-               new_h, new_w = self.output_size, self.output_size*w/h
+            if h > w:
+                new_h, new_w = self.output_size*h/w, self.output_size
+            else:
+                new_h, new_w = self.output_size, self.output_size*w/h
         else:
             new_h, new_w = self.output_size
 
         new_h, new_w = int(new_h), int(new_w)
-        img = transform.resize(image, (new_h, new_w))
-        img = img_as_ubyte(img)
-        bb = [bb[0]*new_w/w, bb[1]*new_h/h, bb[2]*new_w/w, bb[3]*new_h/h]
-        return {'image': img, 'bb':bb}
+        # make sure that gray image has 3 channels
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+        img = cv2.resize(image, (new_h, new_w), interpolation=cv2.INTER_CUBIC)
+        bbox = BoundingBox(bb[0], bb[1], bb[2], bb[3])
+        bbox.scale(opts['search_region'])
+        # bb = [bb[0]*new_w/w, bb[1]*new_h/h, bb[2]*new_w/w, bb[3]*new_h/h]
+        return {'image': img, 'bb': bbox.get_bb_list()}
 
-class CropPrev(object):
-    """Crop the previous frame image using the bounding box specifications.
-
-    Args:
-        output_size (tuple or int): Desired output size. If int, square crop
-            is made.
-    """
-    def __call__(self, sample):
-        image, bb = sample['image'], sample['bb']
-        image = img_as_ubyte(image)
-        if (len(image.shape) == 2):
-            image = np.repeat(image[...,None],3,axis=2)
-        im = Image.fromarray(image)
-        w = bb[2]-bb[0]
-        h = bb[3]-bb[1]
-        left = bb[0]-w/2
-        top = bb[1]-h/2
-        right = left + 2*w
-        bottom = top + 2*h
-        box = (left, top, right, bottom)
-        box = tuple([int(math.floor(x)) for x in box])
-        res = np.array(im.crop(box))
-        bb = [bb[0]-left, bb[1]-top, bb[2]-left, bb[3]-top]
-        return {'image':res, 'bb':bb}
-
-class CropCurr(object):
-    """Crop the current frame image using the bounding box specifications.
-
-    Args:
-        output_size (tuple or int): Desired output size. If int, square crop
-            is made.
-    """
-    def __call__(self, sample):
-        image, prevbb, currbb = sample['image'], sample['prevbb'], sample['currbb']
-        image = img_as_ubyte(image)
-        if (len(image.shape) == 2):
-            image = np.repeat(image[...,None],3,axis=2)
-        im = Image.fromarray(image)
-        w = prevbb[2]-prevbb[0]
-        h = prevbb[3]-prevbb[1]
-        left = prevbb[0]-w/2
-        top = prevbb[1]-h/2
-        right = left + 2*w
-        bottom = top + 2*h
-        box = (left, top, right, bottom)
-        box = tuple([int(math.floor(x)) for x in box])
-        res = np.array(im.crop(box))
-        bb = [currbb[0]-left, currbb[1]-top, currbb[2]-left, currbb[3]-top]
-        return {'image':res, 'bb':bb}
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
@@ -97,8 +50,8 @@ class ToTensor(object):
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C X H X W
-#         prev_img = prev_img.transpose((2, 0, 1))
-#         curr_img = curr_img.transpose((2, 0, 1))
+        prev_img = prev_img.transpose((2, 0, 1))
+        curr_img = curr_img.transpose((2, 0, 1))
         if 'currbb' in sample:
             currbb = sample['currbb']
             return {'previmg': torch.from_numpy(prev_img).float(),
@@ -110,175 +63,149 @@ class ToTensor(object):
                     'currimg': torch.from_numpy(curr_img).float()
                    }
 
-class Normalize(object):
+
+class NormalizeToTensor(object):
     """Returns image with zero mean and scales bounding box by factor of 10."""
 
     def __call__(self, sample):
         prev_img, curr_img = sample['previmg'], sample['currimg']
         sz = prev_img.shape[0]
-#         self.mean = [104, 117, 123]
-#         prev_img = prev_img.astype(float)
-#         curr_img = curr_img.astype(float)
-#         prev_img -= np.array(self.mean).astype(float)
-#         curr_img -= np.array(self.mean).astype(float)
-
         self.transform = transforms.Compose([transforms.ToTensor(),
                                             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                                                  std=[0.229, 0.224, 0.225])
                                         ])
-        prev_img = self.transform(prev_img).numpy()
-        curr_img = self.transform(curr_img).numpy()
-        prev_img = prev_img.astype(float)
-        curr_img = curr_img.astype(float)                                  
+        prev_img = self.transform(prev_img)
+        curr_img = self.transform(curr_img)
         if 'currbb' in sample:
             currbb = sample['currbb']
-            currbb = currbb*(10./sz);
+            currbb = np.array(currbb)*(10./sz)
             return {'previmg': prev_img,
                     'currimg': curr_img,
-                    'currbb': currbb
-                    }
+                    'currbb': torch.from_numpy(currbb).float()}
         else:
             return {'previmg': prev_img,
-                    'currimg': curr_img
-                   }
+                    'currimg': curr_img}
 
-def show_batch(sample_batched):
-    """Show images with bounding boxes for a batch of samples."""
-    dpi = 80
-    previmg_batch, currimg_batch, currbb_batch = \
-            sample_batched['previmg'], sample_batched['currimg'], sample_batched['currbb']
-    batch_size = len(previmg_batch)
-    im_size = previmg_batch.size(2)
-    grid1 = utils.make_grid(previmg_batch)
-    grid1 = grid1.numpy().transpose((1, 2, 0))
-    grid1 = grid1/grid1.max()
-    grid1 = grid1*255
-    grid1 = grid1.astype(np.uint8)
 
-    grid2 = utils.make_grid(currimg_batch)
-    grid2 = grid2.numpy().transpose((1, 2, 0))
-    grid2 = grid2/grid2.max()
-    grid2 = grid2*255
-    grid2 = grid2.astype(np.uint8)
+def shift_crop_training_sample(sample, bb_params):
+    """
+    Given an image with bounding box, this method randomly shifts the box and
+    generates a training example. It returns current image crop with shifted
+    box (with respect to current image).
+    """
+    output_sample = {}
+    opts = {}
+    currimg = sample['image']
+    currbb = sample['bb']
+    bbox_curr_gt = BoundingBox(currbb[0], currbb[1], currbb[2], currbb[3])
+    bbox_curr_shift = BoundingBox(0, 0, 0, 0)
+    bbox_curr_shift = bbox_curr_gt.shift(currimg,
+                                         bb_params['lambda_scale_frac'],
+                                         bb_params['lambda_shift_frac'],
+                                         bb_params['min_scale'],
+                                         bb_params['max_scale'], True,
+                                         bbox_curr_shift)
+    rand_search_region, rand_search_location, edge_spacing_x, edge_spacing_y = cropPadImage(bbox_curr_shift, currimg)
+    bbox_curr_gt = BoundingBox(currbb[0], currbb[1], currbb[2], currbb[3])
+    bbox_gt_recentered = BoundingBox(0, 0, 0, 0)
+    bbox_gt_recentered = bbox_curr_gt.recenter(rand_search_location, edge_spacing_x, edge_spacing_y, bbox_gt_recentered)
+    output_sample['image'] = rand_search_region
+    output_sample['bb'] = bbox_gt_recentered.get_bb_list()
 
-    f, axarr = plt.subplots(2)
-    axarr[0].imshow(grid1)
-    axarr[0].set_title('Previous frame images')
-    axarr[1].imshow(grid2)
-    axarr[1].set_title('Current frame images with bounding boxes')
-    for i in range(batch_size):
-        bb = currbb_batch[i]
-        bb = bb.numpy()
-        rect = patches.Rectangle((bb[0]+(i%8)*im_size, bb[1]+(i/8)*im_size),bb[2]-bb[0],bb[3]-bb[1],linewidth=1,edgecolor='r',facecolor='none')
-        axarr[1].add_patch(rect)
-    fig = plt.gcf()
-    fig.set_size_inches(18.5, 18.5)
-    plt.show()
+    # additional options for visualization
 
-# given currbb output from model and previous bounding box values in
-# the original image dimensions, return the current bouding box values
-# in the orignal image dimensions
-def inverse_transform(currbb, orig_prevbb):
-    # unscaling
-    patch_width = (orig_prevbb[2]-orig_prevbb[0])*2
-    patch_height = (orig_prevbb[3]-orig_prevbb[1])*2
-    # input image size to network
-    net_w = 224
-    net_h = 224
-    unscaledbb = [currbb[0]*patch_width/net_w,
-                  currbb[1]*patch_height/net_h,
-                  currbb[2]*patch_width/net_w,
-                  currbb[3]*patch_height/net_h]
-    # uncropping
-    bb = orig_prevbb
-    w = bb[2]-bb[0]
-    h = bb[3]-bb[1]
-    left = bb[0]-w/2
-    top = bb[1]-h/2
-    orig_currbb = [left+unscaledbb[0], top+unscaledbb[1], left+unscaledbb[2], top+unscaledbb[3]]
-    return orig_currbb
+    opts['edge_spacing_x'] = edge_spacing_x
+    opts['edge_spacing_y'] = edge_spacing_y
+    opts['search_location'] = rand_search_location
+    opts['search_region'] = rand_search_region
+    return output_sample, opts
 
-# randomly crop the sample using GOTURN motion smoothness model
-# given an image with bounding box, returns a new bounding box
-# in the neighbourhood to simulate smooth motion
-def random_crop(sample,
-                lambda_scale_frac,
-                lambda_shift_frac,
-                min_scale,
-                max_scale):
+
+def crop_sample(sample):
+    """
+    Given a sample image with bounding box, this method returns the image crop
+    at the bounding box location with twice the width and height for context.
+    """
+    output_sample = {}
+    opts = {}
     image, bb = sample['image'], sample['bb']
-    image = img_as_ubyte(image)
-    if (len(image.shape) == 2):
-        image = np.repeat(image[...,None],3,axis=2)
-    im = Image.fromarray(image)
-    cols = image.shape[1]
-    rows = image.shape[0]
-    width = bb[2]-bb[0]
-    height = bb[3]-bb[1]
-    center_x = bb[0] + width/2
-    center_y = bb[1] + height/2
+    orig_bbox = BoundingBox(bb[0], bb[1], bb[2], bb[3])
+    output_image, pad_image_location, edge_spacing_x, edge_spacing_y = cropPadImage(orig_bbox, image)
+    new_bbox = BoundingBox(0, 0, 0, 0)
+    new_bbox = new_bbox.recenter(pad_image_location, edge_spacing_x, edge_spacing_y, new_bbox)
+    output_sample['image'] = output_image
+    output_sample['bb'] = new_bbox.get_bb_list()
 
-    # motion smoothness model
-    # adapted from Held's implementation - https://github.com/davheld/GOTURN/
-    kMaxNumTries = 10
-    kContextFactor = 2.
-    new_width = -1
-    num_tries_width = 0
-    # get new width
-    while ((new_width < 0 or new_width > cols-1) and num_tries_width < kMaxNumTries):
-        width_scale_factor = max(min_scale, min(max_scale, sample_exp_two_sided(lambda_scale_frac)))
-        new_width = width * (1 + width_scale_factor)
-        new_width = max(1.0, min(cols - 1, new_width))
-        num_tries_width = num_tries_width + 1;
+    # additional options for visualization
+    opts['edge_spacing_x'] = edge_spacing_x
+    opts['edge_spacing_y'] = edge_spacing_y
+    opts['search_location'] = pad_image_location
+    opts['search_region'] = output_image
+    return output_sample, opts
 
-    new_height = -1
-    num_tries_height = 0
-    # get new height
-    while ((new_height < 0 or new_height > rows-1) and num_tries_height < kMaxNumTries):
-        height_scale_factor = max(min_scale, min(max_scale, sample_exp_two_sided(lambda_scale_frac)))
-        new_height = height * (1 + height_scale_factor)
-        new_height = max(1.0, min(rows - 1, new_height))
-        num_tries_height = num_tries_height + 1;
 
-    first_time_x = True;
-    new_center_x = -1
-    num_tries_x = 0
-    # get new center X
-    while ((first_time_x or
-            new_center_x < center_x - width * kContextFactor / 2 or
-            new_center_x > center_x + width * kContextFactor / 2 or
-            new_center_x - new_width / 2 < 0 or
-            new_center_x + new_width / 2 > cols)
-            and num_tries_x < kMaxNumTries):
-        new_x_temp = center_x + width * sample_exp_two_sided(lambda_shift_frac)
-        new_center_x = min(cols - new_width / 2, max(new_width / 2, new_x_temp))
-        first_time_x = False
-        num_tries_x = num_tries_x + 1
+def cropPadImage(bbox_tight, image):
+    """TODO: Docstring for cropPadImage.
+    :returns: TODO
+    """
+    pad_image_location = computeCropPadImageLocation(bbox_tight, image)
+    roi_left = min(pad_image_location.x1, (image.shape[1] - 1))
+    roi_bottom = min(pad_image_location.y1, (image.shape[0] - 1))
+    roi_width = min(image.shape[1], max(1.0, math.ceil(pad_image_location.x2 - pad_image_location.x1)))
+    roi_height = min(image.shape[0], max(1.0, math.ceil(pad_image_location.y2 - pad_image_location.y1)))
 
-    first_time_y = True;
-    new_center_y = -1
-    num_tries_y = 0
-    # get new center Y
-    while ((first_time_y or
-            new_center_y < center_y - height * kContextFactor / 2 or
-            new_center_y > center_y + height * kContextFactor / 2 or
-            new_center_y - new_height / 2 < 0 or
-            new_center_y + new_height / 2 > rows)
-            and num_tries_y < kMaxNumTries):
-        new_y_temp = center_y + height * sample_exp_two_sided(lambda_shift_frac)
-        new_center_y = min(rows - new_height / 2, max(new_height / 2, new_y_temp))
-        first_time_y = False
-        num_tries_y = num_tries_y + 1
+    err = 0.000000001  # To take care of floating point arithmetic errors
+    cropped_image = image[int(roi_bottom + err):int(roi_bottom + roi_height), int(roi_left + err):int(roi_left + roi_width)]
+    output_width = max(math.ceil(bbox_tight.compute_output_width()), roi_width)
+    output_height = max(math.ceil(bbox_tight.compute_output_height()), roi_height)
+    if image.ndim > 2:
+        output_image = np.zeros((int(output_height), int(output_width), image.shape[2]), dtype=image.dtype)
+    else:
+        output_image = np.zeros((int(output_height), int(output_width)), dtype=image.dtype)
 
-    box = [new_center_x - new_width/2,
-           new_center_y - new_height/2,
-           new_center_x + new_width/2,
-           new_center_y + new_height/2]
-    box = [int(math.floor(x)) for x in box]
-    return box
+    edge_spacing_x = min(bbox_tight.edge_spacing_x(), (image.shape[1] - 1))
+    edge_spacing_y = min(bbox_tight.edge_spacing_y(), (image.shape[0] - 1))
 
-def sample_exp_two_sided(lambda_):
-    t = np.random.randint(2, size=1)[0]
-    pos_or_neg = 1 if (t%2 == 0) else -1
-    rand_uniform = np.random.rand(1)[0]
-    return np.log(rand_uniform) / lambda_ * pos_or_neg
+    # if output_image[int(edge_spacing_y):int(edge_spacing_y) + cropped_image.shape[0], int(edge_spacing_x):int(edge_spacing_x) + cropped_image.shape[1]].shape != cropped_image.shape :
+    # import pdb
+    # pdb.set_trace()
+    # print('debug')
+
+    # rounding should be done to match the width and height
+    output_image[int(edge_spacing_y):int(edge_spacing_y) + cropped_image.shape[0], int(edge_spacing_x):int(edge_spacing_x) + cropped_image.shape[1]] = cropped_image
+    return output_image, pad_image_location, edge_spacing_x, edge_spacing_y
+
+
+def computeCropPadImageLocation(bbox_tight, image):
+    """TODO: Docstring for computeCropPadImageLocation.
+    :returns: TODO
+    """
+
+    # Center of the bounding box
+    bbox_center_x = bbox_tight.get_center_x()
+    bbox_center_y = bbox_tight.get_center_y()
+
+    image_height = image.shape[0]
+    image_width = image.shape[1]
+
+    # Padded output width and height
+    output_width = bbox_tight.compute_output_width()
+    output_height = bbox_tight.compute_output_height()
+
+    roi_left = max(0.0, bbox_center_x - (output_width / 2.))
+    roi_bottom = max(0.0, bbox_center_y - (output_height / 2.))
+
+    # Padded roi width
+    left_half = min(output_width / 2., bbox_center_x)
+    right_half = min(output_width / 2., image_width - bbox_center_x)
+    roi_width = max(1.0, left_half + right_half)
+
+    # Padded roi height
+    top_half = min(output_height / 2., bbox_center_y)
+    bottom_half = min(output_height / 2., image_height - bbox_center_y)
+    roi_height = max(1.0, top_half + bottom_half)
+
+    # Padded image location in the original image
+    objPadImageLocation = BoundingBox(roi_left, roi_bottom, roi_left + roi_width, roi_bottom + roi_height)
+
+    return objPadImageLocation

@@ -70,10 +70,11 @@ def save(ax, im, bb, gt_bb, idx):
 
 
 def main(args):
-    use_gpu = torch.cuda.is_available()
+    cuda = torch.cuda.is_available()
+    device = torch.device('cuda:0' if cuda else 'cpu')
     tester = GOTURN(args.data_directory,
                     args.model_weights,
-                    use_gpu)
+                    device)
     fig, ax = plt.subplots(1)
     if os.path.exists(args.save_directory):
         print('Save directory %s already exists' % (args.save_directory))
