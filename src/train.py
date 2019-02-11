@@ -15,13 +15,12 @@ from datasets import ALOVDataset, ILSVRC2014_DET_Dataset
 from helper import Rescale, shift_crop_training_sample, crop_sample, NormalizeToTensor
 
 # constants
-cuda = torch.cuda.is_available()
-device = torch.device('cuda:0' if cuda else 'cpu')
+use_gpu = torch.cuda.is_available()
 input_size = 224
 kSaveModel = 20000  # save model after every 20000 steps
 batchSize = 50  # number of samples in a batch
 kGeneratedExamplesPerImage = 10  # generate 10 synthetic samples per image
-transform = NormalizeToTensor()
+transform = transforms.Compose([NormalizeToTensor()])
 bb_params = {}
 enable_tensorboard = False
 if enable_tensorboard:
@@ -42,10 +41,10 @@ parser.add_argument('--weight_decay', default=0.0005, type=float,
                     help='weight decay in optimizer')
 parser.add_argument('--lr-decay-step', default=100000, type=int,
                     help='number of steps after which learning rate decays')
-parser.add_argument('-d', '--data-directory', type=str,
+parser.add_argument('-data', '--data-directory', type=str,
                     default='../data/',
                     help='path to data directory')
-parser.add_argument('-s', '--save-directory', type=str,
+parser.add_argument('-save', '--save-directory', type=str,
                     default='../saved_checkpoints/exp3/',
                     help='path to save directory')
 parser.add_argument('-lshift', '--lambda-shift-frac', default=5, type=float,
@@ -68,14 +67,14 @@ parser.add_argument('--save-freq', default=20000, type=int,
 
 def main():
 
-    global args, batchSize, kSaveModel, bb_params
+    global args, batchSize, kSaveModel, use_gpu, bb_params
     args = parser.parse_args()
     print(args)
     batchSize = args.batch_size
     kSaveModel = args.save_freq
     np.random.seed(args.manual_seed)
     torch.manual_seed(args.manual_seed)
-    if cuda:
+    if use_gpu:
         torch.cuda.manual_seed_all(args.manual_seed)
 
     # load bounding box motion model params
@@ -101,8 +100,11 @@ def main():
     datasets = [alov, imagenet]
 
     # load model
-    net = model.GoNet().to(device)
-    loss_fn = torch.nn.L1Loss(size_average=False).to(device)
+    net = model.GoNet()
+    loss_fn = torch.nn.L1Loss(size_average=False)
+    if use_gpu:
+        net = net.cuda()
+        loss_fn = loss_fn.cuda()
 
     # initialize optimizer
     optimizer = optim.SGD(net.classifier.parameters(),
@@ -255,18 +257,15 @@ def train_model(model, datasets, criterion, optimizer):
             if done:
                 scheduler.step()
 
-                # x1 = train_batch['previmg']
-                # x2 = train_batch['currimg']
-                # y = train_batch['currbb']
-                # if cuda:
-                #     x1, x2, y = Variable(x1.cuda()), \
-                #         Variable(x2.cuda()), Variable(y.cuda(), requires_grad=False)
-                # else:
-                #     x1, x2, y = Variable(x1), Variable(x2), Variable(y, requires_grad=False)
-                # load sample
-                x1 = train_batch['previmg'].to(device)
-                x2 = train_batch['currimg'].to(device)
-                y = train_batch['currbb'].requires_grad_(False).to(device)
+                x1 = train_batch['previmg']
+                x2 = train_batch['currimg']
+                y = train_batch['currbb']
+                # wrap them in Variable
+                if use_gpu:
+                    x1, x2, y = Variable(x1.cuda()), \
+                        Variable(x2.cuda()), Variable(y.cuda(), requires_grad=False)
+                else:
+                    x1, x2, y = Variable(x1), Variable(x2), Variable(y, requires_grad=False)
 
                 # zero the parameter gradients
                 optimizer.zero_grad()

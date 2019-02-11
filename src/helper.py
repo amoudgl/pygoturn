@@ -77,8 +77,7 @@ class NormalizeToTensor(object):
         prev_img = self.transform(prev_img)
         curr_img = self.transform(curr_img)
         if 'currbb' in sample:
-            currbb = sample['currbb']
-            currbb = np.array(currbb)*(10./sz)
+            currbb = np.array(sample['currbb'])
             return {'previmg': prev_img,
                     'currimg': curr_img,
                     'currbb': torch.from_numpy(currbb).float()}
