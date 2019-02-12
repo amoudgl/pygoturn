@@ -6,7 +6,6 @@ import re
 import torch
 import numpy as np
 import cv2
-from torchvision import transforms
 
 from model import GoNet
 from helper import NormalizeToTensor, Rescale, crop_sample
@@ -67,18 +66,20 @@ class GOTURN:
             bb = [bb[0], bb[1], bb[0]+bb[2], bb[1]+bb[3]]
             self.gt.append(bb)
         self.x = np.array(self.x)
-        # uncomment to select rectangle manually
-        # init_bbox = bbox_coordinates(self.x[0][0])
         print(init_bbox)
 
-    # returns transformed pytorch tensor which is passed directly to network
     def __getitem__(self, idx):
+        """
+        Returns transformed torch tensor which is passed to the network.
+        """
         sample = self._get_sample(idx)
         return self.transform(sample)
 
-    # returns cropped and scaled previous frame and current frame
-    # in numpy format
     def _get_sample(self, idx):
+        """
+        Returns cropped previous and current frame at the previous predicted
+        location. Note that the images are scaled to (224,224,3).
+        """
         prev = self.img[idx][0]
         curr = self.img[idx][1]
         prevbb = self.prev_rect
@@ -91,9 +92,11 @@ class GOTURN:
         self.opts = opts_curr
         return sample
 
-    # given previous frame and next frame, regress the bounding box coordinates
-    # in the original image dimensions
     def get_rect(self, sample):
+        """
+        Regresses the bounding box coordinates in the original image dimensions
+        for an input sample.
+        """
         x1, x2 = sample['previmg'], sample['currimg']
         x1 = x1.unsqueeze(0).to(self.device)
         x2 = x2.unsqueeze(0).to(self.device)
@@ -104,11 +107,15 @@ class GOTURN:
 
         # inplace conversion
         bbox.unscale(self.opts['search_region'])
-        bbox.uncenter(self.curr_img, self.opts['search_location'], self.opts['edge_spacing_x'], self.opts['edge_spacing_y'])
+        bbox.uncenter(self.curr_img, self.opts['search_location'],
+                      self.opts['edge_spacing_x'], self.opts['edge_spacing_y'])
         return bbox.get_bb_list()
 
-    # loop through all the frames of test sequence and track target object
     def test(self):
+        """
+        Loops through all the frames of test sequence and tracks the target.
+        Prints predicted box location on console with frame ID.
+        """
         self.model.eval()
         st = time.time()
         for i in range(self.len):

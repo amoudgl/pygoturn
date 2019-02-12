@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-from torch.autograd import Variable
 from torchvision import transforms
 from got10k.trackers import Tracker
 
@@ -20,6 +19,8 @@ class TrackerGOTURN(Tracker):
         net: GOTURN pytorch model
         prev_box: previous bounding box
         prev_img: previous tracking image
+        transform_tensor: normalizes images and returns torch tensor.
+        otps: bounding box config to unscale and uncenter network output.
     """
     def __init__(self, net_path=None, **kargs):
         super(TrackerGOTURN, self).__init__(
@@ -45,8 +46,11 @@ class TrackerGOTURN(Tracker):
         self.transform_tensor = transforms.Compose([NormalizeToTensor()])
         self.opts = None
 
-    # assumes that initial box has the format: [xmin, ymin, width, height]
     def init(self, image, box):
+        """
+        Initiates the tracker at given box location.
+        Aassumes that the initial box has format: [xmin, ymin, width, height]
+        """
         image = np.array(image)
 
         # goturn helper functions expect box in [xmin, ymin, xmax, ymax] format
@@ -55,12 +59,16 @@ class TrackerGOTURN(Tracker):
         self.prev_box = box
         self.prev_img = image
 
-    # given current image, returns target box
     def update(self, image):
+        """
+        Given current image, returns target box.
+        """
         # crop current and previous image at previous box location
         image = np.array(image)
-        prev_sample, opts_prev = crop_sample({'image': self.prev_img, 'bb': self.prev_box})
-        curr_sample, opts_curr = crop_sample({'image': image, 'bb': self.prev_box})
+        prev_sample, opts_prev = crop_sample({'image': self.prev_img,
+                                             'bb': self.prev_box})
+        curr_sample, opts_curr = crop_sample({'image': image,
+                                             'bb': self.prev_box})
         self.opts = opts_curr
         self.curr_img = image
         curr_img = self.scale(curr_sample, opts_curr)['image']
@@ -81,9 +89,11 @@ class TrackerGOTURN(Tracker):
         box[3] = box[3]-box[1]
         return box
 
-    # given previous frame and next frame, regress the bounding box coordinates
-    # in the original image dimensions
     def _get_rect(self, sample):
+        """
+        Performs forward pass through the GOTURN network to regress
+        bounding box coordinates in the original image dimensions.
+        """
         x1, x2 = sample['previmg'], sample['currimg']
         x1 = x1.unsqueeze(0).to(self.device)
         x2 = x2.unsqueeze(0).to(self.device)
@@ -94,5 +104,8 @@ class TrackerGOTURN(Tracker):
 
         # inplace conversion
         bbox.unscale(self.opts['search_region'])
-        bbox.uncenter(self.curr_img, self.opts['search_location'], self.opts['edge_spacing_x'], self.opts['edge_spacing_y'])
+        bbox.uncenter(self.curr_img,
+                      self.opts['search_location'],
+                      self.opts['edge_spacing_x'],
+                      self.opts['edge_spacing_y'])
         return bbox.get_bb_list()

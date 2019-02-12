@@ -52,7 +52,6 @@ class GoNet(nn.Module):
                 m.bias.data.fill_(1)
                 m.weight.data.normal_(0, 0.005)
 
-    # feed forward through neural net
     def forward(self, x, y):
         x1 = self.convnet(x)
         x1 = x1.view(x.size(0), 256*6*6)

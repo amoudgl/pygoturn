@@ -5,14 +5,13 @@ import time
 import argparse
 
 import torch
-from torch.autograd import Variable
-from torchvision import transforms
 import torch.optim as optim
 import numpy as np
 import model
 
 from datasets import ALOVDataset, ILSVRC2014_DET_Dataset
-from helper import Rescale, shift_crop_training_sample, crop_sample, NormalizeToTensor
+from helper import (Rescale, shift_crop_training_sample,
+                    crop_sample, NormalizeToTensor)
 
 # constants
 cuda = torch.cuda.is_available()
@@ -130,32 +129,40 @@ def get_training_batch(running_batch_idx, running_batch, dataset):
 
     x1_batch, x2_batch, y_batch = make_transformed_samples(dataset, args)
     if running_batch_idx + N <= batchSize:
-        running_batch['previmg'][running_batch_idx:running_batch_idx+N, :, :, :] = x1_batch
-        running_batch['currimg'][running_batch_idx:running_batch_idx+N, :, :, :] = x2_batch
-        running_batch['currbb'][running_batch_idx:running_batch_idx+N, :] = y_batch
+        running_batch['previmg'][running_batch_idx:
+                                 running_batch_idx+N, :, :, :] = x1_batch
+        running_batch['currimg'][running_batch_idx:
+                                 running_batch_idx+N, :, :, :] = x2_batch
+        running_batch['currbb'][running_batch_idx:
+                                running_batch_idx+N, :] = y_batch
         running_batch_idx = (running_batch_idx+N)
     elif running_batch_idx + N > batchSize:
         done = 1
         count_in = batchSize-running_batch_idx
         # print "count_in =", count_in
         if count_in > 0:
-            running_batch['previmg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x1_batch[:count_in,:,:,:]
-            running_batch['currimg'][running_batch_idx:running_batch_idx+count_in,:,:,:] = x2_batch[:count_in,:,:,:]
-            running_batch['currbb'][running_batch_idx:running_batch_idx+count_in,:] = y_batch[:count_in,:]
+            running_batch['previmg'][running_batch_idx:
+                                     running_batch_idx+count_in, :, :, :] = x1_batch[:count_in, :, :, :]
+            running_batch['currimg'][running_batch_idx:
+                                     running_batch_idx+count_in, :, :, :] = x2_batch[:count_in, :, :, :]
+            running_batch['currbb'][running_batch_idx:
+                                    running_batch_idx+count_in, :] = y_batch[:count_in, :]
             running_batch_idx = (running_batch_idx+N) % batchSize
             train_batch = running_batch
-            running_batch = {'previmg': torch.Tensor(batchSize, 3, input_size, input_size),
-                             'currimg': torch.Tensor(batchSize, 3, input_size, input_size),
+            running_batch = {'previmg': torch.Tensor(batchSize, 3, input_size,
+                                                     input_size),
+                             'currimg': torch.Tensor(batchSize, 3, input_size,
+                                                     input_size),
                              'currbb': torch.Tensor(batchSize, 4)}
-            running_batch['previmg'][:running_batch_idx,:,:,:] = x1_batch[count_in:,:,:,:]
-            running_batch['currimg'][:running_batch_idx,:,:,:] = x2_batch[count_in:,:,:,:]
-            running_batch['currbb'][:running_batch_idx,:] = y_batch[count_in:,:]
+            running_batch['previmg'][:running_batch_idx, :, :, :] = x1_batch[count_in:, :, :, :]
+            running_batch['currimg'][:running_batch_idx, :, :, :] = x2_batch[count_in:, :, :, :]
+            running_batch['currbb'][:running_batch_idx, :] = y_batch[count_in:, :]
         else:
             train_batch = running_batch
             running_batch_idx = 0
-            running_batch['previmg'][running_batch_idx:running_batch_idx+N,:,:,:] = x1_batch
-            running_batch['currimg'][running_batch_idx:running_batch_idx+N,:,:,:] = x2_batch
-            running_batch['currbb'][running_batch_idx:running_batch_idx+N,:] = y_batch
+            running_batch['previmg'][running_batch_idx:running_batch_idx+N, :, :, :] = x1_batch
+            running_batch['currimg'][running_batch_idx:running_batch_idx+N, :, :, :] = x2_batch
+            running_batch['currbb'][running_batch_idx:running_batch_idx+N, :] = y_batch
             running_batch_idx = (running_batch_idx+N)
 
     return running_batch, train_batch, done, running_batch_idx
@@ -169,8 +176,10 @@ def make_transformed_samples(dataset, args):
     # cropped scaled sample (two frames and bb)
     true_sample, _ = dataset.get_sample(idx)
     true_tensor = transform(true_sample)
-    x1_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3, input_size, input_size)
-    x2_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3, input_size, input_size)
+    x1_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3,
+                            input_size, input_size)
+    x2_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 3,
+                            input_size, input_size)
     y_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 4)
 
     # initialize batch with the true sample
@@ -210,7 +219,9 @@ def train_model(model, datasets, criterion, optimizer):
     running_batch = {'previmg': torch.Tensor(batchSize, 3, input_size, input_size),
                      'currimg': torch.Tensor(batchSize, 3, input_size, input_size),
                      'currbb': torch.Tensor(batchSize, 4)}
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=args.lr_decay_step, gamma=args.gamma)
+    scheduler = optim.lr_scheduler.StepLR(optimizer,
+                                          step_size=args.lr_decay_step,
+                                          gamma=args.gamma)
 
     # resume from a checkpoint
     if args.resume:
@@ -239,7 +250,8 @@ def train_model(model, datasets, criterion, optimizer):
     while itr < args.num_batches:
 
         model.train()
-        if args.resume and os.path.isfile(args.resume) and itr == start_itr and (not flag):
+        if (args.resume and os.path.isfile(args.resume) and
+           itr == start_itr and (not flag)):
             checkpoint = torch.load(args.resume)
             i = checkpoint['dataset_indx']
             flag = True
@@ -251,7 +263,10 @@ def train_model(model, datasets, criterion, optimizer):
         while i < len(datasets):
             dataset = datasets[i]
             i = i+1
-            running_batch, train_batch, done, running_batch_idx = get_training_batch(running_batch_idx, running_batch, dataset)
+            (running_batch, train_batch,
+                done, running_batch_idx) = get_training_batch(running_batch_idx,
+                                                              running_batch,
+                                                              dataset)
             if done:
                 scheduler.step()
                 # load sample
@@ -284,7 +299,8 @@ def train_model(model, datasets, criterion, optimizer):
 
                 if itr > 0 and itr % kSaveModel == 0:
                     path = os.path.join(args.save_directory,
-                                        'model_itr_' + str(itr) + '_loss_' + str(round(curr_loss, 3)) + '.pth.tar')
+                                        'model_itr_' + str(itr) + '_loss_' +
+                                        str(round(curr_loss, 3)) + '.pth.tar')
                     save_checkpoint({'itr': itr,
                                      'np_rand_state': np.random.get_state(),
                                      'torch_rand_state': torch.get_rng_state(),
