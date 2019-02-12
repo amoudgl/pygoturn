@@ -36,7 +36,7 @@ class ALOVDataset(Dataset):
         return self.len
 
     def __getitem__(self, idx):
-        sample = self.get_sample(idx)
+        sample, _ = self.get_sample(idx)
         if (self.transform):
             sample = self.transform(sample)
         return sample
@@ -88,7 +88,7 @@ class ALOVDataset(Dataset):
         between 0 and 1 with respect to the target frame and then scaled by
         factor of 10.
         """
-        opts = {}
+        opts_curr = {}
         curr_sample = {}
         curr_img = self.get_orig_sample(idx, 1)['image']
         currbb = self.get_orig_sample(idx, 1)['bb']
@@ -110,23 +110,23 @@ class ALOVDataset(Dataset):
         curr_sample['bb'] = bbox_gt_recentered.get_bb_list()
 
         # additional options for visualization
-        opts['edge_spacing_x'] = edge_spacing_x
-        opts['edge_spacing_y'] = edge_spacing_y
-        opts['search_location'] = rand_search_location
-        opts['search_region'] = rand_search_region
+        opts_curr['edge_spacing_x'] = edge_spacing_x
+        opts_curr['edge_spacing_y'] = edge_spacing_y
+        opts_curr['search_location'] = rand_search_location
+        opts_curr['search_region'] = rand_search_region
 
         # build prev sample
         prev_sample = self.get_orig_sample(idx, 0)
-        prev_sample, _ = crop_sample(prev_sample)
+        prev_sample, opts_prev = crop_sample(prev_sample)
 
         # scale
         scale = Rescale((self.input_size, self.input_size))
-        scaled_curr_obj = scale(curr_sample)
-        scaled_prev_obj = scale(prev_sample)
+        scaled_curr_obj = scale(curr_sample, opts_curr)
+        scaled_prev_obj = scale(prev_sample, opts_prev)
         training_sample = {'previmg': scaled_prev_obj['image'],
                            'currimg': scaled_curr_obj['image'],
                            'currbb': scaled_curr_obj['bb']}
-        return training_sample, opts
+        return training_sample, opts_curr
 
     def get_orig_sample(self, idx, i=1):
         """
@@ -235,16 +235,16 @@ class ILSVRC2014_DET_Dataset(Dataset):
         """
         sample = self.get_orig_sample(idx)
         # unscaled current image crop with box
-        curr_sample, opts = shift_crop_training_sample(sample, self.bb_params)
+        curr_sample, opts_curr = shift_crop_training_sample(sample, self.bb_params)
         # unscaled previous image crop with box
-        prev_sample, _ = crop_sample(sample)
+        prev_sample, opts_prev = crop_sample(sample)
         scale = Rescale((self.sz, self.sz))
-        scaled_curr_obj = scale(curr_sample)
-        scaled_prev_obj = scale(prev_sample)
+        scaled_curr_obj = scale(curr_sample, opts_curr)
+        scaled_prev_obj = scale(prev_sample, opts_prev)
         training_sample = {'previmg': scaled_prev_obj['image'],
                            'currimg': scaled_curr_obj['image'],
                            'currbb': scaled_curr_obj['bb']}
-        return training_sample, opts
+        return training_sample, opts_curr
 
     def get_orig_sample(self, idx):
         """

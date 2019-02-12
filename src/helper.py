@@ -20,7 +20,7 @@ class Rescale(object):
         assert isinstance(output_size, (int, tuple))
         self.output_size = output_size
 
-    def __call__(self, sample):
+    def __call__(self, sample, opts):
         image, bb = sample['image'], sample['bb']
         h, w = image.shape[:2]
         if isinstance(self.output_size, int):
@@ -36,8 +36,9 @@ class Rescale(object):
         if image.ndim == 2:
             image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
         img = cv2.resize(image, (new_h, new_w), interpolation=cv2.INTER_CUBIC)
-        bb = [bb[0]*new_w/w, bb[1]*new_h/h, bb[2]*new_w/w, bb[3]*new_h/h]
-        return {'image': img, 'bb': bb}
+        bbox = BoundingBox(bb[0], bb[1], bb[2], bb[3])
+        bbox.scale(opts['search_region'])
+        return {'image': img, 'bb': bbox.get_bb_list()}
 
 
 class NormalizeToTensor(object):
@@ -54,8 +55,7 @@ class NormalizeToTensor(object):
         prev_img = self.transform(prev_img)
         curr_img = self.transform(curr_img)
         if 'currbb' in sample:
-            currbb = sample['currbb']
-            currbb = np.array(currbb)*(10./sz)
+            currbb = np.array(sample['currbb'])
             return {'previmg': prev_img,
                     'currimg': curr_img,
                     'currbb': torch.from_numpy(currbb).float()}
