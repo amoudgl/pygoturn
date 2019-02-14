@@ -48,7 +48,6 @@ class NormalizeToTensor(object):
 
     def __call__(self, sample):
         prev_img, curr_img = sample['previmg'], sample['currimg']
-        sz = prev_img.shape[0]
         self.transform = transforms.Compose([transforms.ToTensor(),
                                             transforms.Normalize(
                                             mean=[0.485, 0.456, 0.406],
