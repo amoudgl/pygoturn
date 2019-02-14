@@ -6,6 +6,10 @@ import warnings
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 from helper import (shift_crop_training_sample, crop_sample,
                     Rescale, BoundingBox, cropPadImage)
@@ -93,14 +97,14 @@ class ALOVDataset(Dataset):
         curr_img = self.get_orig_sample(idx, 1)['image']
         currbb = self.get_orig_sample(idx, 1)['bb']
         prevbb = self.get_orig_sample(idx, 0)['bb']
-        bbox_curr_shift = BoundingBox(currbb[0],
-                                      currbb[1],
-                                      currbb[2],
-                                      currbb[3])
+        bbox_curr_shift = BoundingBox(prevbb[0],
+                                      prevbb[1],
+                                      prevbb[2],
+                                      prevbb[3])
         (rand_search_region, rand_search_location,
             edge_spacing_x, edge_spacing_y) = cropPadImage(bbox_curr_shift,
                                                            curr_img)
-        bbox_curr_gt = BoundingBox(prevbb[0], prevbb[1], prevbb[2], prevbb[3])
+        bbox_curr_gt = BoundingBox(currbb[0], currbb[1], currbb[2], currbb[3])
         bbox_gt_recentered = BoundingBox(0, 0, 0, 0)
         bbox_gt_recentered = bbox_curr_gt.recenter(rand_search_location,
                                                    edge_spacing_x,
@@ -151,7 +155,7 @@ class ALOVDataset(Dataset):
                      float(ann[6]), float(ann[8]))
         return [left, top, right, bottom]
 
-    def show(self, idx, is_current):
+    def show(self, idx, is_current=1):
         """
         Helper function to display image at a particular index with grounttruth
         bounding box.
@@ -166,7 +170,8 @@ class ALOVDataset(Dataset):
         bb = [int(val) for val in bb]
         image = cv2.rectangle(image, (bb[0], bb[1]), (bb[2], bb[3]),
                               (0, 255, 0), 2)
-        cv2.imshow('Current image with bb', image)
+        cv2.imshow('alov dataset sample: ' + str(idx), image)
+        cv2.waitKey(0)
 
     def show_sample(self, idx):
         """
@@ -177,7 +182,12 @@ class ALOVDataset(Dataset):
         prev_image = x['previmg']
         curr_image = x['currimg']
         bb = x['currbb']
+        bbox = BoundingBox(bb[0], bb[1], bb[2], bb[3])
+        bbox.unscale(curr_image)
+        bb = bbox.get_bb_list()
         bb = [int(val) for val in bb]
+        prev_image = cv2.cvtColor(prev_image, cv2.COLOR_RGB2BGR)
+        curr_image = cv2.cvtColor(curr_image, cv2.COLOR_RGB2BGR)
         curr_image = cv2.rectangle(curr_image, (bb[0], bb[1]), (bb[2], bb[3]),
                                    (0, 255, 0), 2)
         concat_image = np.hstack((prev_image, curr_image))
@@ -315,7 +325,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
         bb = [int(val) for val in bb]
         image = cv2.rectangle(image, (bb[0], bb[1]), (bb[2], bb[3]),
                               (0, 255, 0), 2)
-        cv2.imshow('Current image with bb', image)
+        cv2.imshow('imagenet dataset sample: ' + str(idx), image)
         cv2.waitKey(0)
 
     def show_sample(self, idx):
@@ -327,7 +337,12 @@ class ILSVRC2014_DET_Dataset(Dataset):
         prev_image = x['previmg']
         curr_image = x['currimg']
         bb = x['currbb']
+        bbox = BoundingBox(bb[0], bb[1], bb[2], bb[3])
+        bbox.unscale(curr_image)
+        bb = bbox.get_bb_list()
         bb = [int(val) for val in bb]
+        prev_image = cv2.cvtColor(prev_image, cv2.COLOR_RGB2BGR)
+        curr_image = cv2.cvtColor(curr_image, cv2.COLOR_RGB2BGR)
         curr_image = cv2.rectangle(curr_image, (bb[0], bb[1]), (bb[2], bb[3]),
                                    (0, 255, 0), 2)
         concat_image = np.hstack((prev_image, curr_image))
