@@ -7,7 +7,7 @@ from goturn import TrackerGOTURN
 
 if __name__ == '__main__':
     # setup tracker
-    net_path = "../ckpts/final_model.pth"
+    net_path = "../ckpts/pytorch_goturn.pth.tar"
     tracker = TrackerGOTURN(net_path=net_path)
 
     # setup experiments

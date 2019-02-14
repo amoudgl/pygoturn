@@ -35,7 +35,7 @@ class TrackerGOTURN(Tracker):
         if net_path is not None:
             checkpoint = torch.load(
                 net_path, map_location=lambda storage, loc: storage)
-            self.net.load_state_dict(checkpoint)
+            self.net.load_state_dict(checkpoint['state_dict'])
             self.net.eval()
         self.net = self.net.to(self.device)
 

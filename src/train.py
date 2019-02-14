@@ -118,8 +118,9 @@ def main():
     net = train_model(net, datasets, loss_fn, optimizer)
 
     # save trained model
-    path = os.path.join(args.save_directory, 'final_model.pth')
-    torch.save(net.state_dict(), path)
+    checkpoint = {'state_dict': net.state_dict()}
+    path = os.path.join(args.save_directory, 'pytorch_goturn.pth.tar')
+    torch.save(checkpoint, path)
 
 
 def get_training_batch(running_batch_idx, running_batch, dataset):

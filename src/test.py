@@ -34,7 +34,7 @@ class GOTURN:
         self.curr_img = None
         checkpoint = torch.load(
             model_path, map_location=lambda storage, loc: storage)
-        self.model.load_state_dict(checkpoint)
+        self.model.load_state_dict(checkpoint['state_dict'])
         self.model.to(device)
         frames = os.listdir(root_dir + '/img')
         frames = [root_dir + "/img/" + frame for frame in frames]
