@@ -54,7 +54,7 @@ def save(im, bb, gt_bb, idx):
     # plot GOTURN predictions with red rectangle
     im = cv2.rectangle(im, (bb[0], bb[1]), (bb[2], bb[3]),
                        (0, 0, 255), 2)
-    # plot annotations with while rectangle
+    # plot annotations with white rectangle
     im = cv2.rectangle(im, (gt_bb[0], gt_bb[1]), (gt_bb[2], gt_bb[3]),
                        (255, 255, 255), 2)
     save_path = os.path.join(args.save_directory, str(idx)+'.jpg')
