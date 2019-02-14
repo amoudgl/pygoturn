@@ -25,7 +25,6 @@ class GOTURN:
     def __init__(self, root_dir, model_path, device):
         self.root_dir = root_dir
         self.device = device
-        print(self.device)
         self.transform = NormalizeToTensor()
         self.scale = Rescale((224, 224))
         self.model_path = model_path
