@@ -308,7 +308,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
         self.len = len(y)
         print('ImageNet dataset parsing done.')
         # should return 239283
-        print('Total number of annotations in ImageNet Dataset =', self.len)
+        print('Total number of annotations in ImageNet dataset =', self.len)
         return x, y
 
     def display_object(self, idx):
