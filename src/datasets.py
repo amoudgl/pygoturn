@@ -6,10 +6,6 @@ import warnings
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 
 from helper import (shift_crop_training_sample, crop_sample,
                     Rescale, BoundingBox, cropPadImage)
@@ -245,7 +241,8 @@ class ILSVRC2014_DET_Dataset(Dataset):
         """
         sample = self.get_orig_sample(idx)
         # unscaled current image crop with box
-        curr_sample, opts_curr = shift_crop_training_sample(sample, self.bb_params)
+        curr_sample, opts_curr = shift_crop_training_sample(sample,
+                                                            self.bb_params)
         # unscaled previous image crop with box
         prev_sample, opts_prev = crop_sample(sample)
         scale = Rescale((self.sz, self.sz))
