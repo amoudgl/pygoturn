@@ -49,6 +49,7 @@ def axis_aligned_iou(boxA, boxB):
 
 
 def save(im, bb, gt_bb, idx):
+    im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
     bb = [int(val) for val in bb]  # GOTURN output
     gt_bb = [int(val) for val in gt_bb]  # groundtruth box
     # plot GOTURN predictions with red rectangle

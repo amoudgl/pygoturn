@@ -33,10 +33,6 @@ class Rescale(object):
 
         new_h, new_w = int(new_h), int(new_w)
         # make sure that gray image has 3 channels
-        if image.ndim == 2:
-            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        else:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img = cv2.resize(image, (new_h, new_w), interpolation=cv2.INTER_CUBIC)
         bbox = BoundingBox(bb[0], bb[1], bb[2], bb[3])
         bbox.scale(opts['search_region'])
@@ -64,6 +60,13 @@ class NormalizeToTensor(object):
             return {'previmg': prev_img,
                     'currimg': curr_img}
 
+
+def bgr2rgb(image):
+    if image.ndim == 2:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+    else:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    return image
 
 def shift_crop_training_sample(sample, bb_params):
     """

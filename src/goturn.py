@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import cv2
 from torchvision import transforms
 from got10k.trackers import Tracker
 
@@ -52,7 +53,8 @@ class TrackerGOTURN(Tracker):
         Aassumes that the initial box has format: [xmin, ymin, width, height]
         """
         image = np.array(image)
-
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
         # goturn helper functions expect box in [xmin, ymin, xmax, ymax] format
         box[2] = box[0] + box[2]
         box[3] = box[1] + box[3]
@@ -63,8 +65,10 @@ class TrackerGOTURN(Tracker):
         """
         Given current image, returns target box.
         """
-        # crop current and previous image at previous box location
         image = np.array(image)
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        # crop current and previous image at previous box location
         prev_sample, opts_prev = crop_sample({'image': self.prev_img,
                                              'bb': self.prev_box})
         curr_sample, opts_curr = crop_sample({'image': image,

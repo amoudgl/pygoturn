@@ -8,7 +8,7 @@ import cv2
 from torch.utils.data import Dataset
 
 from helper import (shift_crop_training_sample, crop_sample,
-                    Rescale, BoundingBox, cropPadImage)
+                    Rescale, BoundingBox, cropPadImage, bgr2rgb)
 
 warnings.filterwarnings("ignore")
 
@@ -134,6 +134,7 @@ class ALOVDataset(Dataset):
         Range of valid index: [0, self.len-1].
         """
         curr = cv2.imread(self.x[idx][i])
+        curr = bgr2rgb(curr)
         currbb = self.get_bb(self.y[idx][i])
         sample = {'image': curr, 'bb': currbb}
         return sample
@@ -162,6 +163,7 @@ class ALOVDataset(Dataset):
         """
         sample = self.get_orig_sample(idx, is_current)
         image = sample['image']
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         bb = sample['bb']
         bb = [int(val) for val in bb]
         image = cv2.rectangle(image, (bb[0], bb[1]), (bb[2], bb[3]),
@@ -259,6 +261,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
         Range of valid index: [0, self.len-1].
         """
         curr = cv2.imread(self.x[idx])
+        curr = bgr2rgb(curr)
         currbb = self.y[idx]
         sample = {'image': curr, 'bb': currbb}
         return sample
@@ -318,6 +321,7 @@ class ILSVRC2014_DET_Dataset(Dataset):
         """
         sample = self.get_orig_sample(idx)
         image = sample['image']
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
         bb = sample['bb']
         bb = [int(val) for val in bb]
         image = cv2.rectangle(image, (bb[0], bb[1]), (bb[2], bb[3]),

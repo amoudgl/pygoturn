@@ -7,15 +7,15 @@ from goturn import TrackerGOTURN
 
 if __name__ == '__main__':
     # setup tracker
-    net_path = "../ckpts/pytorch_goturn.pth.tar"
+    net_path = "/home/abhinav.moudgil/pytorch_goturn.pth.tar"
     tracker = TrackerGOTURN(net_path=net_path)
 
     # setup experiments
     # got10k toolkit expects either extracted directories or zip files for
     # all sequences in OTB data directory
     experiments = [
-        ExperimentOTB('../data/OTB', version=2013),
-        ExperimentOTB('../data/OTB', version=2015)
+        ExperimentOTB('/ssd_scratch/cvit/abhinav.m/OTB', version=2013)
+        # ExperimentOTB('/ssd_scratch/cvit/abhinav.m/OTB', version=2015)
     ]
 
     # run tracking experiments and report performance

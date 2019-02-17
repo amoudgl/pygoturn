@@ -8,7 +8,7 @@ import numpy as np
 import cv2
 
 from model import GoNet
-from helper import NormalizeToTensor, Rescale, crop_sample
+from helper import NormalizeToTensor, Rescale, crop_sample, bgr2rgb
 from boundingbox import BoundingBox
 
 args = None
@@ -56,7 +56,9 @@ class GOTURN:
         for i in range(self.len):
             self.x.append([frames[i], frames[i+1]])
             img_prev = cv2.imread(frames[i])
+            img_prev = bgr2rgb(img_prev)
             img_curr = cv2.imread(frames[i+1])
+            img_curr = bgr2rgb(img_curr)
             self.img.append([img_prev, img_curr])
             lines[i+1] = re.sub('\t', ',', lines[i+1])
             lines[i+1] = re.sub(' +', ',', lines[i+1])
