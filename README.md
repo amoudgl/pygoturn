@@ -75,7 +75,7 @@ Feel free to contribute to this project, if you have any improvements!
 
 In order to benchmark results for a tracking sequence or do fast inference, run the following command:
 ```
-python3 test.py -w ../checkpoints/final_model.pth -d ../data/OTB/Man
+python3 test.py -w ../checkpoints/pytorch_goturn.pth.tar -d ../data/OTB/Man
 ```
 
 **Arguments:**
