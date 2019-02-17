@@ -5,12 +5,11 @@ import re
 
 import torch
 import numpy as np
-from torch.autograd import Variable
-from torchvision import transforms
-from skimage import io
+import cv2
 
 from model import GoNet
-from helper import ToTensor, Normalize, CropPrev, Rescale, inverse_transform
+from helper import NormalizeToTensor, Rescale, crop_sample, bgr2rgb
+from boundingbox import BoundingBox
 
 args = None
 parser = argparse.ArgumentParser(description='GOTURN Testing')
@@ -23,23 +22,20 @@ parser.add_argument('-d', '--data-directory',
 
 class GOTURN:
     """Tester for OTB formatted sequences"""
-    def __init__(self, root_dir, model_path, use_gpu=False):
+    def __init__(self, root_dir, model_path, device):
         self.root_dir = root_dir
-        self.use_gpu = use_gpu
-        self.transform = transforms.Compose([Normalize(), ToTensor()])
-        crop_prev = CropPrev()
-        scale = Rescale((224, 224))
-        self.transform_prev = transforms.Compose([crop_prev, scale])
+        self.device = device
+        self.transform = NormalizeToTensor()
+        self.scale = Rescale((224, 224))
         self.model_path = model_path
         self.model = GoNet()
         self.gt = []
-        if use_gpu:
-            self.model = self.model.cuda()
-            checkpoint = torch.load(model_path)
-        else:
-            checkpoint = torch.load(model_path, map_location=lambda storage,
-                                    location: storage)
-        self.model.load_state_dict(checkpoint)
+        self.opts = None
+        self.curr_img = None
+        checkpoint = torch.load(
+            model_path, map_location=lambda storage, loc: storage)
+        self.model.load_state_dict(checkpoint['state_dict'])
+        self.model.to(device)
         frames = os.listdir(root_dir + '/img')
         frames = [root_dir + "/img/" + frame for frame in frames]
         self.len = len(frames)-1
@@ -59,8 +55,10 @@ class GOTURN:
         self.img = []
         for i in range(self.len):
             self.x.append([frames[i], frames[i+1]])
-            img_prev = io.imread(frames[i])
-            img_curr = io.imread(frames[i+1])
+            img_prev = cv2.imread(frames[i])
+            img_prev = bgr2rgb(img_prev)
+            img_curr = cv2.imread(frames[i+1])
+            img_curr = bgr2rgb(img_curr)
             self.img.append([img_prev, img_curr])
             lines[i+1] = re.sub('\t', ',', lines[i+1])
             lines[i+1] = re.sub(' +', ',', lines[i+1])
@@ -69,45 +67,56 @@ class GOTURN:
             bb = [bb[0], bb[1], bb[0]+bb[2], bb[1]+bb[3]]
             self.gt.append(bb)
         self.x = np.array(self.x)
-        # uncomment to select rectangle manually
-        # init_bbox = bbox_coordinates(self.x[0][0])
         print(init_bbox)
 
-    # returns transformed pytorch tensor which is passed directly to network
     def __getitem__(self, idx):
+        """
+        Returns transformed torch tensor which is passed to the network.
+        """
         sample = self._get_sample(idx)
         return self.transform(sample)
 
-    # returns cropped and scaled previous frame and current frame
-    # in numpy format
     def _get_sample(self, idx):
+        """
+        Returns cropped previous and current frame at the previous predicted
+        location. Note that the images are scaled to (224,224,3).
+        """
         prev = self.img[idx][0]
         curr = self.img[idx][1]
         prevbb = self.prev_rect
-        prev_img = self.transform_prev({'image': prev, 'bb': prevbb})['image']
-        curr_img = self.transform_prev({'image': curr, 'bb': prevbb})['image']
+        prev_sample, opts_prev = crop_sample({'image': prev, 'bb': prevbb})
+        curr_sample, opts_curr = crop_sample({'image': curr, 'bb': prevbb})
+        curr_img = self.scale(curr_sample, opts_curr)['image']
+        prev_img = self.scale(prev_sample, opts_prev)['image']
         sample = {'previmg': prev_img, 'currimg': curr_img}
+        self.curr_img = curr
+        self.opts = opts_curr
         return sample
 
-    # given previous frame and next frame, regress the bounding box coordinates
-    # in the original image dimensions
     def get_rect(self, sample):
+        """
+        Regresses the bounding box coordinates in the original image dimensions
+        for an input sample.
+        """
         x1, x2 = sample['previmg'], sample['currimg']
-        if self.use_gpu:
-            x1, x2 = Variable(x1.cuda()), Variable(x2.cuda())
-        else:
-            x1, x2 = Variable(x1), Variable(x2)
-        x1 = x1[None, :, :, :]
-        x2 = x2[None, :, :, :]
+        x1 = x1.unsqueeze(0).to(self.device)
+        x2 = x2.unsqueeze(0).to(self.device)
         y = self.model(x1, x2)
         bb = y.data.cpu().numpy().transpose((1, 0))
         bb = bb[:, 0]
-        bb = list(bb*(224./10))  # unscaling
-        bb = inverse_transform(bb, self.prev_rect)
-        return bb
+        bbox = BoundingBox(bb[0], bb[1], bb[2], bb[3])
 
-    # loop through all the frames of test sequence and track target object
+        # inplace conversion
+        bbox.unscale(self.opts['search_region'])
+        bbox.uncenter(self.curr_img, self.opts['search_location'],
+                      self.opts['edge_spacing_x'], self.opts['edge_spacing_y'])
+        return bbox.get_bb_list()
+
     def test(self):
+        """
+        Loops through all the frames of test sequence and tracks the target.
+        Prints predicted box location on console with frame ID.
+        """
         self.model.eval()
         st = time.time()
         for i in range(self.len):
@@ -122,6 +131,7 @@ class GOTURN:
 if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
-    use_gpu = torch.cuda.is_available()
-    tester = GOTURN(args.data_directory, args.model_weights, use_gpu)
+    cuda = torch.cuda.is_available()
+    device = torch.device('cuda:0' if cuda else 'cpu')
+    tester = GOTURN(args.data_directory, args.model_weights, device)
     tester.test()

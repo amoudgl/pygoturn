@@ -2,8 +2,7 @@ import os
 import argparse
 
 import torch
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+import cv2
 
 from test import GOTURN
 
@@ -49,38 +48,32 @@ def axis_aligned_iou(boxA, boxB):
     return iou
 
 
-def save(ax, im, bb, gt_bb, idx):
-    ax.clear()
-    ax.imshow(im)
-    goturn_box = patches.Rectangle((bb[0], bb[1]),
-                                   bb[2]-bb[0], bb[3]-bb[1],
-                                   linewidth=2, edgecolor='r',
-                                   facecolor='none')
-    gt_box = patches.Rectangle((gt_bb[0], gt_bb[1]),
-                               gt_bb[2]-gt_bb[0], gt_bb[3]-gt_bb[1],
-                               linewidth=2, edgecolor='w',
-                               facecolor='none')
-    ax.add_patch(goturn_box)
-    ax.add_patch(gt_box)
-    props = dict(boxstyle='round', facecolor='red', alpha=0.5)
-    ax.text(0.05, 0.95, "GOTURN", transform=ax.transAxes, fontsize=12,
-            verticalalignment='top', bbox=props)
-    ax.set_axis_off()
-    plt.savefig(os.path.join(args.save_directory, str(idx)+'.jpg'))
+def save(im, bb, gt_bb, idx):
+    im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
+    bb = [int(val) for val in bb]  # GOTURN output
+    gt_bb = [int(val) for val in gt_bb]  # groundtruth box
+    # plot GOTURN predictions with red rectangle
+    im = cv2.rectangle(im, (bb[0], bb[1]), (bb[2], bb[3]),
+                       (0, 0, 255), 2)
+    # plot annotations with white rectangle
+    im = cv2.rectangle(im, (gt_bb[0], gt_bb[1]), (gt_bb[2], gt_bb[3]),
+                       (255, 255, 255), 2)
+    save_path = os.path.join(args.save_directory, str(idx)+'.jpg')
+    cv2.imwrite(save_path, im)
 
 
 def main(args):
-    use_gpu = torch.cuda.is_available()
+    cuda = torch.cuda.is_available()
+    device = torch.device('cuda:0' if cuda else 'cpu')
     tester = GOTURN(args.data_directory,
                     args.model_weights,
-                    use_gpu)
-    fig, ax = plt.subplots(1)
+                    device)
     if os.path.exists(args.save_directory):
         print('Save directory %s already exists' % (args.save_directory))
     else:
         os.makedirs(args.save_directory)
     # save initial frame with bounding box
-    save(ax, tester.img[0][0], tester.prev_rect, tester.prev_rect, 1)
+    save(tester.img[0][0], tester.prev_rect, tester.prev_rect, 1)
     tester.model.eval()
 
     # loop through sequence images
@@ -95,7 +88,7 @@ def main(args):
 
         # save current image with predicted rectangle and gt box
         im = tester.img[i][1]
-        save(ax, im, bb, gt_bb, i+2)
+        save(im, bb, gt_bb, i+2)
 
         # print stats
         print('frame: %d, IoU = %f' % (
