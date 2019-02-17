@@ -1,7 +1,5 @@
-torch==1.0.0
 numpy==1.14.5
-matplotlib==3.0.2
-scikit-image==0.14.1
+torch==1.0.0
+opencv-python==4.0.0.21
 torchvision==0.2.1
-Pillow==5.4.1
 tensorboardX==1.6
