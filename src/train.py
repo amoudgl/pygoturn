@@ -8,6 +8,7 @@ import torch
 import torch.optim as optim
 import numpy as np
 import model
+# from torchsummary import summary
 
 from datasets import ALOVDataset, ILSVRC2014_DET_Dataset
 from helper import (Rescale, shift_crop_training_sample,
@@ -101,6 +102,7 @@ def main():
 
     # load model
     net = model.GoNet().to(device)
+    # summary(net, [(3, 224, 224), (3, 224, 224)])
     loss_fn = torch.nn.L1Loss(size_average=False).to(device)
 
     # initialize optimizer
@@ -123,54 +125,42 @@ def main():
     torch.save(checkpoint, path)
 
 
-def get_training_batch(running_batch_idx, running_batch, dataset):
-    done = 0
+def get_training_batch(num_running_batch, running_batch, dataset):
+    '''
+    Implements GOTURN batch formation regimen.
+    '''
+    global args, batchSize
+    done = False
     N = kGeneratedExamplesPerImage+1
     train_batch = None
-
     x1_batch, x2_batch, y_batch = make_transformed_samples(dataset, args)
-    if running_batch_idx + N <= batchSize:
-        running_batch['previmg'][running_batch_idx:
-                                 running_batch_idx+N, :, :, :] = x1_batch
-        running_batch['currimg'][running_batch_idx:
-                                 running_batch_idx+N, :, :, :] = x2_batch
-        running_batch['currbb'][running_batch_idx:
-                                running_batch_idx+N, :] = y_batch
-        running_batch_idx = (running_batch_idx+N)
-    elif running_batch_idx + N > batchSize:
-        done = 1
-        count_in = batchSize-running_batch_idx
-        # print "count_in =", count_in
-        if count_in > 0:
-            running_batch['previmg'][running_batch_idx:
-                                     running_batch_idx+count_in, :, :, :] = x1_batch[:count_in, :, :, :]
-            running_batch['currimg'][running_batch_idx:
-                                     running_batch_idx+count_in, :, :, :] = x2_batch[:count_in, :, :, :]
-            running_batch['currbb'][running_batch_idx:
-                                    running_batch_idx+count_in, :] = y_batch[:count_in, :]
-            running_batch_idx = (running_batch_idx+N) % batchSize
-            train_batch = running_batch
-            running_batch = {'previmg': torch.Tensor(batchSize, 3, input_size,
-                                                     input_size),
-                             'currimg': torch.Tensor(batchSize, 3, input_size,
-                                                     input_size),
-                             'currbb': torch.Tensor(batchSize, 4)}
-            running_batch['previmg'][:running_batch_idx, :, :, :] = x1_batch[count_in:, :, :, :]
-            running_batch['currimg'][:running_batch_idx, :, :, :] = x2_batch[count_in:, :, :, :]
-            running_batch['currbb'][:running_batch_idx, :] = y_batch[count_in:, :]
-        else:
-            train_batch = running_batch
-            running_batch_idx = 0
-            running_batch['previmg'][running_batch_idx:running_batch_idx+N, :, :, :] = x1_batch
-            running_batch['currimg'][running_batch_idx:running_batch_idx+N, :, :, :] = x2_batch
-            running_batch['currbb'][running_batch_idx:running_batch_idx+N, :] = y_batch
-            running_batch_idx = (running_batch_idx+N)
-
-    return running_batch, train_batch, done, running_batch_idx
+    assert(x1_batch.shape[0] == x2_batch.shape[0] == y_batch.shape[0] == N)
+    count_in = min(batchSize - num_running_batch, N)
+    remain = N - count_in
+    running_batch['previmg'][num_running_batch:
+                             num_running_batch+count_in] = x1_batch[:count_in]
+    running_batch['currimg'][num_running_batch:
+                             num_running_batch+count_in] = x2_batch[:count_in]
+    running_batch['currbb'][num_running_batch:
+                            num_running_batch+count_in] = y_batch[:count_in]
+    num_running_batch = num_running_batch + count_in
+    if remain > 0:
+        done = True
+        train_batch = running_batch.copy()
+        running_batch['previmg'][:remain] = x1_batch[-remain:]
+        running_batch['currimg'][:remain] = x2_batch[-remain:]
+        running_batch['currbb'][:remain] = y_batch[-remain:]
+        num_running_batch = remain
+    return running_batch, train_batch, done, num_running_batch
 
 
 def make_transformed_samples(dataset, args):
-
+    '''
+    Given a dataset, it picks a random sample from it and returns a batch
+    of (kGeneratedExamplesPerImage+1) samples. The batch contains true sample
+    from dataset and kGeneratedExamplesPerImage samples, which are created
+    artifically with augmentation by GOTURN smooth motion model.
+    '''
     idx = np.random.randint(dataset.len, size=1)[0]
     # unscaled original sample (single image and bb)
     orig_sample = dataset.get_orig_sample(idx)
@@ -184,9 +174,9 @@ def make_transformed_samples(dataset, args):
     y_batch = torch.Tensor(kGeneratedExamplesPerImage + 1, 4)
 
     # initialize batch with the true sample
-    x1_batch[0, :, :, :] = true_tensor['previmg']
-    x2_batch[0, :, :, :] = true_tensor['currimg']
-    y_batch[0, :] = true_tensor['currbb']
+    x1_batch[0] = true_tensor['previmg']
+    x2_batch[0] = true_tensor['currimg']
+    y_batch[0] = true_tensor['currbb']
 
     scale = Rescale((input_size, input_size))
     for i in range(kGeneratedExamplesPerImage):
@@ -201,9 +191,9 @@ def make_transformed_samples(dataset, args):
                            'currimg': scaled_curr_obj['image'],
                            'currbb': scaled_curr_obj['bb']}
         sample = transform(training_sample)
-        x1_batch[i+1, :, :, :] = sample['previmg']
-        x2_batch[i+1, :, :, :] = sample['currimg']
-        y_batch[i+1, :] = sample['currbb']
+        x1_batch[i+1] = sample['previmg']
+        x2_batch[i+1] = sample['currimg']
+        y_batch[i+1] = sample['currbb']
 
     return x1_batch, x2_batch, y_batch
 
@@ -216,7 +206,7 @@ def train_model(model, datasets, criterion, optimizer):
     lr = args.learning_rate
     flag = False
     start_itr = 0
-    running_batch_idx = 0
+    num_running_batch = 0
     running_batch = {'previmg': torch.Tensor(batchSize, 3, input_size, input_size),
                      'currimg': torch.Tensor(batchSize, 3, input_size, input_size),
                      'currbb': torch.Tensor(batchSize, 4)}
@@ -233,7 +223,7 @@ def train_model(model, datasets, criterion, optimizer):
             model.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
             scheduler.load_state_dict(checkpoint['scheduler'])
-            running_batch_idx = checkpoint['running_batch_idx']
+            num_running_batch = checkpoint['num_running_batch']
             running_batch = checkpoint['running_batch']
             lr = checkpoint['lr']
             np.random.set_state(checkpoint['np_rand_state'])
@@ -265,9 +255,10 @@ def train_model(model, datasets, criterion, optimizer):
             dataset = datasets[i]
             i = i+1
             (running_batch, train_batch,
-                done, running_batch_idx) = get_training_batch(running_batch_idx,
+                done, num_running_batch) = get_training_batch(num_running_batch,
                                                               running_batch,
                                                               dataset)
+            # print(i, num_running_batch, done)
             if done:
                 scheduler.step()
                 # load sample
@@ -293,6 +284,7 @@ def train_model(model, datasets, criterion, optimizer):
                 print('[training] step = %d/%d, loss = %f, time = %f'
                       % (itr, args.num_batches, curr_loss, end-st))
                 sys.stdout.flush()
+                del(train_batch)
                 st = time.time()
 
                 if enable_tensorboard:
@@ -309,7 +301,7 @@ def train_model(model, datasets, criterion, optimizer):
                                      'state_dict': model.state_dict(),
                                      'optimizer': optimizer.state_dict(),
                                      'scheduler': scheduler.state_dict(),
-                                     'running_batch_idx': running_batch_idx,
+                                     'num_running_batch': num_running_batch,
                                      'running_batch': running_batch,
                                      'lr': lr,
                                      'dataset_indx': i}, path)
