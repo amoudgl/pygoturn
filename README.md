@@ -58,7 +58,7 @@ To evaluate PyTorchGOTURN on OTB50 and OTB100, follow the steps below:
      ```
      pip install --upgrade got10k
      ```
-- [Download pretrained model](https://drive.google.com/file/d/1i7svVWIcOaP_iCe_gA3prVSoCz8JeCWO/view?usp=sharing).
+- [Download pretrained model](https://drive.google.com/file/d/1szpx3J-hfSrBEi_bze3d0PjSfQwNij7X/view?usp=sharing).
 - Edit OTB dataset path and model path appropriately in `src/evaluate.py`. The script will automatically download OTB dataset at the path provided.
 - Run evaluation script:
     ```
